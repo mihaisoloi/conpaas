@@ -224,6 +224,30 @@ class Controller(object):
                                         c.get_cloud_type())
         c.set_context_template(contxt)
 
+    ##### FT_start
+    #===========================================================================#
+    #                generate_context_ft(self, service_name, replace, cloud)       #
+    #===========================================================================#
+    def generate_context_ft(self, service_name, cloud = None, ip_whitelist = None):
+        """Generates the contextualization file for the default/given cloud.
+    
+            @param cloud (Optional) If specified, the context will be generated
+                         for it, otherwise it will be generated for the default
+                         cloud
+
+            @param service_name Used to know which config_files and scripts
+                                to select      
+        """
+ 
+        if cloud != None:
+            c = cloud         
+        else:
+            c = self.__default_cloud
+        contxt = self._get_context_file_ft(service_name, \
+                                        c.get_cloud_type())
+        return contxt
+    ##### FT_stop
+
     #===========================================================================#
     #                update_context(self, replace, cloud)                       #
     #===========================================================================#
@@ -313,7 +337,9 @@ class Controller(object):
             done.append(node)
         nodes = [ i for i in nodes if i not in done]
         if len(nodes):
-          if poll_cycles * poll_interval > 180:
+          # For summerschool - because it can take a while
+          # to schedule machines for the same account 
+          if poll_cycles * poll_interval > 3600:
             # at least 3mins of sleeping + poll time
             return (done, nodes)
 
@@ -337,6 +363,7 @@ class Controller(object):
       conpaas_home = self.__config_parser.get('manager', 'CONPAAS_HOME')
       cloud_scripts_dir = conpaas_home + '/scripts/cloud'
       agent_cfg_dir = conpaas_home + '/config/agent'
+      ft_cfg_dir = conpaas_home +'/config/ft'
       agent_scripts_dir = conpaas_home + '/scripts/agent'
 
       bootstrap = self.__config_parser.get('manager', 'BOOTSTRAP')
@@ -370,14 +397,67 @@ class Controller(object):
           agent_start_file = open(agent_scripts_dir + '/default-agent-start')
       agent_start = agent_start_file.read()
 
+      # Get fault tolerance config file
+      ft_cfg_file = open(ft_cfg_dir + '/ft.cfg')
+      ft_cfg = ft_cfg_file.read()
+      ft_cfg_file.close()
+
+      if os.path.isfile(ft_cfg_dir + '/' + service_name + '-ft.cfg'):
+          ft_cfg_file = open(ft_cfg_dir + '/'+ service_name + '-ft.cfg')
+          ft_cfg += '\n' + ft_cfg_file.read()
+	  ft_cfg_file.close()
+
       ## Concatenate the files
       context_file = cloud_script + '\n\n'
       context_file += agent_setup + '\n\n'
       context_file += 'cat <<EOF > $ROOT_DIR/config.cfg\n'
-      context_file += agent_cfg + '\n' + 'EOF\n\n'
+      context_file += agent_cfg + '\n'
+      context_file += ft_cfg + '\n' + 'EOF\n\n'
       context_file += agent_start + '\n'
 
       return context_file
+
+    ##### FT_start
+    def _get_context_file_ft(self, service_name, cloud):
+      conpaas_home = self.__config_parser.get('manager', 'CONPAAS_HOME')
+      agent_cfg_dir = conpaas_home + '/config/agent'
+      agent_scripts_dir = conpaas_home + '/scripts/agent'
+
+      bootstrap = self.__config_parser.get('manager', 'BOOTSTRAP')
+      manager_ip = self.__config_parser.get('manager', 'MY_IP')
+      
+      # Get agent setup file 
+      agent_restart_setup_file = open(agent_scripts_dir + '/agent-restart-setup', 'r')
+      agent_restart_setup = agent_restart_setup_file.read()
+
+      # Get agent config file - add to the default one the one specific
+      # to the service if it exists
+      default_agent_cfg_file = open(agent_cfg_dir + '/default-agent.cfg')
+      agent_cfg = Template(default_agent_cfg_file.read()). \
+                           safe_substitute(AGENT_TYPE=service_name, \
+                                           MANAGER_IP=manager_ip,
+					   IP_PUBLIC=manager_ip)
+
+      if os.path.isfile(agent_cfg_dir + '/' + service_name + '-agent.cfg'):
+          agent_cfg_file = open(agent_cfg_dir + '/'+ service_name + '-agent.cfg')
+          agent_cfg += '\n' + agent_cfg_file.read()
+
+      # Get agent start file - if none for this service, use the default one
+      if os.path.isfile(agent_scripts_dir + '/' + service_name + '-agent-restart'):
+          agent_restart_file = open(agent_scripts_dir + \
+                                '/'+ service_name + '-agent-restart')
+      else:
+          agent_restart_file = open(agent_scripts_dir + '/default-agent-restart')
+      agent_restart = agent_restart_file.read()
+
+      ## Concatenate the files
+      context_file = agent_restart_setup + '\n'
+      context_file += 'cat <<EOF > $ROOT_DIR/agent-config.cfg\n'
+      context_file += agent_cfg + '\n' + 'EOF\n\n'
+      context_file += agent_restart + '\n'
+
+      return context_file
+    ##### FT_stop
 
     def __force_terminate_service(self):
       # DO NOT release lock after acquiring it

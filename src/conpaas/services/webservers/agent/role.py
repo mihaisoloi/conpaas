@@ -40,13 +40,19 @@ Created on Jan 21, 2011
 @author: ielhelw
 '''
 
-from os.path import join, devnull, exists
+from os.path import join, devnull, exists, basename
 from os import kill, chown, setuid, setgid
 from pwd import getpwnam
 from signal import SIGINT, SIGTERM, SIGUSR2, SIGHUP
 from subprocess import Popen
 from shutil import rmtree, copy2
 from Cheetah.Template import Template
+
+##### FT
+import psutil
+##### FT
+
+import zipfile, sys
 
 from conpaas.core.misc import verify_port, verify_ip_port_list, verify_ip_or_domain
 from conpaas.core.log import create_logger
@@ -143,34 +149,71 @@ class Nginx:
   
   def post_restart(self): pass
 
+  ##### FT
+  def get_state(self):
+      filepath = join(VAR_TMP, 'state.zip')
+      file = zipfile.ZipFile(filepath, 'w')
+      file.write(self.config_file, basename(self.config_file), zipfile.ZIP_DEFLATED)
+      return filepath, 'state.zip'
+
+  def is_alive(self, role_id=None):
+      # Check if at this pid runs the expected role
+      # (nginx_static or nginx_proxy)
+      #
+      # returns True if the expected process at PID is running what it should
+      #
+      if role_id != None:
+          if self.role_id != role_id:
+              return False
+
+      if exists(self.pid_file):
+          pid = int(open(self.pid_file, 'r').read().strip())
+          try:          
+              p = psutil.Process(pid)
+	  except psutil.error.NoSuchProcess:
+              return False
+	  for cmd in p.cmdline:
+	      if self.config_file in cmd:
+                  return True
+          return False
+      else:
+          raise Exception('No pid file')
+
+  def get_id(self):
+      return self.role_id
+  ##### FT
+
 
 class NginxStatic(Nginx):
-  def __init__(self, port=None, code_versions=None):
+  def __init__(self, port=None, code_versions=None, state=False, role_id=None):
     self.cmd = NGINX_CMD
+    self.role_id = role_id
     self.config_template = join(ETC, 'nginx-static.tmpl')
     self.state = S_INIT
-    self.configure(port=port, code_versions=code_versions)
+    self._configure_init()
+    if state == False:
+        self.configure(port=port, code_versions=code_versions)
     self.start()
     self.stop_sig = SIGINT
-  
-  def configure(self, port=None, code_versions=None):
-    verify_port(port)
-    self.port = port
-    if not isinstance(code_versions, list):
-      raise TypeError('code_versions should be a list of strings')
-    for i in code_versions:
-      if not isinstance(i, basestring):
-        raise TypeError('code_versions should be a list of strings')
-    
-    self.code_versions = code_versions
-    if self.state == S_INIT:
+
+  def _configure_init(self):
       self.config_file = join(VAR_CACHE, 'nginx-static.conf')
       self.access_log = join(VAR_CACHE, 'nginx-static-access.log')
       self.error_log = join(VAR_CACHE, 'nginx-static-error.log')
       self.pid_file = join(VAR_RUN, 'nginx-static.pid')
       self.user = 'www-data'
-    self._write_config()
-    self.start_args = [self.cmd, '-c', self.config_file]
+      self.start_args = [self.cmd, '-c', self.config_file]
+
+  def configure(self, port=None, code_versions=None):
+      verify_port(port)
+      self.port = port
+      if not isinstance(code_versions, list):
+          raise TypeError('code_versions should be a list of strings')
+      for i in code_versions:
+          if not isinstance(i, basestring):
+              raise TypeError('code_versions should be a list of strings')
+      self.code_versions = code_versions
+      self._write_config()
   
   def _write_config(self):
     tmpl = open(self.config_template).read()
@@ -196,11 +239,17 @@ class NginxStatic(Nginx):
 
 class NginxProxy(Nginx):
   
-  def __init__(self, port=None, code_version=None, cdn=None, web_list=[], fpm_list=[], tomcat_list=[], tomcat_servlets=[]):
+  def __init__(self, port=None, code_version=None, state=False, cdn=None, web_list=[], fpm_list=[], tomcat_list=[], tomcat_servlets=[], role_id=None):
     self.cmd = NGINX_CMD
+    self.role_id = role_id
     self.config_template = join(ETC, 'nginx-proxy.tmpl')
     self.state = S_INIT
-    self.configure(port=port, code_version=code_version, cdn=cdn, web_list=web_list, fpm_list=fpm_list, tomcat_list=tomcat_list, tomcat_servlets=tomcat_servlets)
+    self._configure_init()
+    if state ==False:
+        self.configure(port, code_version=code_version, cdn=cdn,
+                       web_list=web_list, fpm_list=fpm_list,
+                       tomcat_list=tomcat_list,
+                       tomcat_servlets=tomcat_servlets)
     self.start()
     self.stop_sig = SIGINT
   
@@ -224,19 +273,21 @@ class NginxProxy(Nginx):
     conf_fd.write(str(template))
     conf_fd.close()
     logger.debug('Load Balancer configuration written to %s' % (self.config_file))
-  
+ 
+  def _configure_init(self):
+      self.config_file = join(VAR_CACHE, 'nginx-proxy.conf')
+      self.access_log = join(VAR_CACHE, 'nginx-proxy-access.log')
+      self.error_log = join(VAR_CACHE, 'nginx-proxy-error.log')
+      self.pid_file = join(VAR_RUN, 'nginx-proxy.pid')
+      self.user = 'www-data'
+      self.start_args = [self.cmd, '-c', self.config_file]
+
   def configure(self, port=None, code_version=None, cdn=None, web_list=[], fpm_list=[], tomcat_list=[], tomcat_servlets=[]):
     verify_port(port)
     port = int(port)
     verify_ip_port_list(web_list)
     verify_ip_port_list(fpm_list)
     verify_ip_port_list(tomcat_list)
-    if self.state == S_INIT:
-      self.config_file = join(VAR_CACHE, 'nginx-proxy.conf')
-      self.access_log = join(VAR_CACHE, 'nginx-proxy-access.log')
-      self.error_log = join(VAR_CACHE, 'nginx-proxy-error.log')
-      self.pid_file = join(VAR_RUN, 'nginx-proxy.pid')
-      self.user = 'www-data'
     self.port = port
     self.codeversion = code_version
     self.cdn = cdn
@@ -245,7 +296,6 @@ class NginxProxy(Nginx):
     self.tomcat_list = tomcat_list
     self.tomcat_servlets = tomcat_servlets
     self._write_config()
-    self.start_args = [self.cmd, '-c', self.config_file]
   
   def status(self):
     return {'state': self.state,
@@ -336,20 +386,17 @@ class Tomcat6:
 
 class PHPProcessManager:
   
-  def __init__(self, port=None, scalaris=None, configuration=None):
+  def __init__(self, port=None, scalaris=None, configuration=None, state=False, role_id=None):
     self.config_template = join(ETC, 'fpm.tmpl')
     self.cmd = PHP_FPM
+    self.role_id = role_id
     self.state = S_INIT
-    self.configure(port=port, scalaris=scalaris, configuration=configuration)
+    self._configure_init(scalaris)
+    if state == False:
+        self.configure(port=port, scalaris=scalaris, configuration=configuration)
     self.start()
   
-  def configure(self, port=None, scalaris=None, configuration=None):
-    if port == None: raise TypeError('port is required')
-    verify_port(port)
-    verify_ip_or_domain(scalaris)
-    if configuration and not isinstance(configuration, dict):
-      raise TypeError('configuration is not a dict')
-    if self.state == S_INIT:
+  def _configure_init(self, scalaris):
       self.scalaris_config = join(VAR_CACHE, 'fpm-scalaris.conf')
       self.config_file = join(VAR_CACHE, 'fpm.conf')
       self.error_log = join(VAR_CACHE, 'fpm-error.log')
@@ -362,6 +409,13 @@ class PHPProcessManager:
       self.servers_spare_min = 1
       self.servers_spare_max = 1
       self.scalaris = scalaris
+
+  def configure(self, port=None, scalaris=None, configuration=None):
+    if port == None: raise TypeError('port is required')
+    verify_port(port)
+    verify_ip_or_domain(scalaris)
+    if configuration and not isinstance(configuration, dict):
+      raise TypeError('configuration is not a dict')
     tmpl = open(self.config_template).read()
     fd = open(self.config_file, 'w')
     template = Template(tmpl, {
@@ -394,6 +448,42 @@ class PHPProcessManager:
       raise OSError('Failed to start the php-fpm')
     self.state = S_RUNNING
     logger.info('php-fpm started')
+
+  ##### FT
+  def get_state(self):
+      filepath = join(VAR_TMP, 'state.zip')
+      file = zipfile.ZipFile(filepath, 'w')
+      file.write(self.config_file, basename(self.config_file), zipfile.ZIP_DEFLATED)
+      file.write(self.scalaris_config, basename(self.scalaris_config), zipfile.ZIP_DEFLATED)
+      return filepath, 'state.zip'
+  
+  def is_alive(self, role_id=None):
+      # Check if at this pid runs the expected role
+      # (fpm-php)
+      #
+      # returns True if the expected process at PID is running what it should
+      #
+      if role_id != None:
+          if self.role_id != role_id:
+              return False
+
+      if exists(self.pid_file):
+          pid = int(open(self.pid_file, 'r').read().strip())
+          try:          
+              p = psutil.Process(pid)
+	  except psutil.error.NoSuchProcess:
+              return False
+	  for cmd in p.cmdline:
+	      if self.config_file in cmd:
+                  return True
+	  
+          return False
+      else:
+          raise Exception('No pid file')
+  
+  def get_id(self):
+      return self.role_id
+  ##### FT
   
   def stop(self):
     if self.state == S_RUNNING:

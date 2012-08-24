@@ -50,10 +50,13 @@ import pickle, zipfile, tarfile
 from conpaas.core.log import create_logger
 from conpaas.services.webservers.agent import role 
 
-from conpaas.core.http import HttpErrorResponse, HttpJsonResponse, FileUploadField
+from conpaas.core.http import HttpErrorResponse, HttpJsonResponse, \
+                              FileUploadField, HttpFileDownloadResponse
 from conpaas.core.expose import expose
 from conpaas.core import git
+from conpaas.core.abstract.agent import AbstractAgent
 
+import sys
 
 class AgentException(Exception):
 
@@ -87,15 +90,13 @@ class AgentException(Exception):
         self.message = E_STRINGS[code] % args
 
 
-class WebServersAgent():
+class WebServersAgent(AbstractAgent):
 
     def __init__(self, config_parser):
-
+      AbstractAgent.__init__(self, config_parser)
       role.init(config_parser)
 
-      self.VAR_TMP = config_parser.get('agent', 'VAR_TMP')
-      self.VAR_CACHE = config_parser.get('agent', 'VAR_CACHE')
-      self.VAR_RUN = config_parser.get('agent', 'VAR_RUN')
+      self.my_ip = config_parser.get('agent', 'MY_IP')
 
       self.webserver_file = join(self.VAR_TMP, 'web-php.pickle')
       self.webservertomcat_file = join(self.VAR_TMP, 'web-tomcat.pickle')
@@ -108,12 +109,17 @@ class WebServersAgent():
       self.httpproxy_lock = Lock()
       self.php_lock = Lock()
       self.tomcat_lock = Lock()
+      self.manager_lock = Lock()
 
       self.WebServer = role.NginxStatic
       self.HttpProxy = role.NginxProxy
 
       self.logger = create_logger(__name__)
- 
+      self.config_parser = config_parser
+
+      # if a manager process is running on the agent VM
+      self.manager_process = False
+
     def _get(self, get_params, class_file, pClass):
       if not exists(class_file):
         return HttpErrorResponse(AgentException(E_CONFIG_NOT_EXIST).message)
@@ -129,13 +135,16 @@ class WebServersAgent():
         return HttpJsonResponse({'return': p.status()})
 
     def _create(self, post_params, class_file, pClass):
-      if exists(class_file):
-        return HttpErrorResponse(AgentException(E_CONFIG_EXISTS).message)
+      if exists(class_file) and self._is_alive(class_file):
+        # If already a role has been created and is still alive
+        return HttpErrorResponse('Config file exists')
       try:
         if type(post_params) != dict: raise TypeError()
         p = pClass(**post_params)
       except (ValueError, TypeError) as e:
-        ex = AgentException(E_ARGS_INVALID, detail=str(e))
+        print e
+        sys.stdout.flush()
+        ex = AgentException(AgentException.E_ARGS_INVALID, detail=str(e))
         return HttpErrorResponse(ex.message)
       except Exception as e:
         ex = AgentException(E_UNKNOWN, detail=e)
@@ -147,7 +156,7 @@ class WebServersAgent():
           pickle.dump(p, fd)
           fd.close()
         except Exception as e:
-          ex = AgentException(E_CONFIG_COMMIT_FAILED, detail=e)
+          ex = AgentException(AgentException.E_CONFIG_COMMIT_FAILED, detail=e)
           self.logger.exception(ex.message)
           return HttpErrorResponse(ex.message)
         else:
@@ -201,21 +210,169 @@ class WebServersAgent():
         self.logger.exception(e)
         return HttpErrorResponse(ex.message)
 
-    def _webserver_get_params(self, kwargs):
+    ##### FT_start
+    def _get_state(self, class_file):
+      try:
+        fd = open(class_file, 'r')
+        p = pickle.load(fd)
+        fd.close()
+        filepath, filename = p.get_state()
+      except (ValueError, TypeError) as e:
+        ex = AgentException(E_ARGS_INVALID)
+        return HttpErrorResponse(ex.message)
+      except Exception as e:
+        self.logger.exception(e)
+        return HttpErrorResponse(e.message)
+      else:
+        return HttpFileDownloadResponse(filename, filepath)
+   
+    def _get_id(self, class_file):
+      try:
+        fd = open(class_file, 'r')
+        p = pickle.load(fd)
+        fd.close()
+        id = p.get_id()
+      except (ValueError, TypeError) as e:
+        ex = AgentException(E_ARGS_INVALID)
+        return HttpErrorResponse(ex.message)
+      except Exception as e:
+        self.logger.exception(e)
+        return -1
+      else:
+        return id
+
+    def _is_alive(self, class_file, role_id=None):
+        fd = open(class_file, 'r')
+        p = pickle.load(fd)
+        fd.close()
+        status = p.is_alive(role_id=role_id)
+        return status
+    
+    @expose('GET')
+    def get_state(self, params):
+        self.logger.debug('In get_state')
+        # TODO: for java
+        if 'role_name' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_name')
+        role_name = params.pop('role_name')
+        
+        if 'role_id' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_id')
+        role_id = int(params.pop('role_id'))
+        
+        if role_name == 'proxy':
+            with self.httpproxy_lock:
+               return self._get_state(self.httpproxy_file)
+        if role_name == 'php':
+            with self.php_lock:
+               return self._get_state(self.php_file)
+        if role_name == 'web':
+            with self.web_lock:
+               return self._get_state(self.webserver_file)
+        return HttpErrorResponse('No such role')
+    
+    @expose('GET')
+    def is_alive(self, params):
+        self.logger.debug('In is_alive')
+        # TODO: for java
+        if 'role_name' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_name')
+        role_name = params.pop('role_name')
+        
+        if 'role_id' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_id')
+        role_id = int(params.pop('role_id'))
+
+        if role_name == 'proxy':
+            with self.httpproxy_lock:
+                return HttpJsonResponse({'alive': \
+                                         self._is_alive(self.httpproxy_file, role_id)})
+        if role_name == 'php':
+            with self.php_lock:
+                return HttpJsonResponse({'alive': \
+                                         self._is_alive(self.php_file, role_id)})
+        if role_name == 'web':
+            with self.web_lock:
+                return HttpJsonResponse({'alive': \
+                                         self._is_alive(self.webserver_file, role_id)})
+
+        return HttpErrorResponse('No such role')
+
+    @expose('UPLOAD')
+    def start_role(self, params):
+        #TODO: atomic
+        if 'role_name' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_name')
+        role_name = params.pop('role_name')
+        
+        if 'role_id' not in params:
+            raise AgentException(E_ARGS_MISSING, 'role_id')
+        
+        if role_name == 'web':
+            return self.createWebServer(params)
+
+        if role_name == 'proxy':
+            return self.createHttpProxy(params)
+
+        if role_name == 'php':
+            return self.createPHP(params)
+
+        if role_name == 'manager':
+            return self.createManager(params)
+
+    @expose('GET')
+    def get_roles(self, params):
+        roles = [] 
+        try:
+            with open(self.httpproxy_file) as f:
+                if self._is_alive(self.httpproxy_file):
+                    roles.append(str(self._get_id(self.httpproxy_file)) + ':proxy:5555')
+        except IOError as e:
+            pass 
+        try:
+            with open(self.webserver_file) as f:
+                if self._is_alive(self.webserver_file):
+                    roles.append(str(self._get_id(self.webserver_file)) + ':web:5555')
+        except IOError as e:
+            pass 
+        try:
+            with open(self.php_file) as f:
+                if self._is_alive(self.php_file):
+                    roles.append(str(self._get_id(self.php_file)) + ':php:5555')
+        except IOError as e:
+            pass 
+        if self.manager_process:
+            roles.append('0:manager:80')
+        return HttpJsonResponse(roles)
+    ##### FT_stop
+    
+    def _webserver_get_params(self, params):
       ret = {}
-  
-      if 'port' not in kwargs:
+ 
+      ##### FT_start
+      if 'role_id' in params:
+	  ret['role_id'] = int(params.pop('role_id'))
+
+      if 'state' in params:
+          state_file = params.pop('state')
+          state = zipfile.ZipFile(state_file.file, 'r')
+          state.extractall(self.config_parser.get('agent', 'VAR_CACHE'))
+          ret['state'] = True
+          return ret
+      ##### FT_end
+
+      if 'port' not in params:
         raise AgentException(E_ARGS_MISSING, 'port')
-      if not isinstance(kwargs['port'], int):
+      if not isinstance(params['port'], int):
         raise AgentException(E_ARGS_INVALID, detail='Invalid "port" value')
-      ret['port'] = int(kwargs.pop('port'))
+      ret['port'] = int(params.pop('port'))
   
-      if 'code_versions' not in kwargs:
+      if 'code_versions' not in params:
         raise AgentException(E_ARGS_MISSING, 'code_versions')
-      ret['code_versions'] = kwargs.pop('code_versions')
+      ret['code_versions'] = params.pop('code_versions')
   
-      if len(kwargs) != 0:
-        raise AgentException(E_ARGS_UNEXPECTED, kwargs.keys())
+      if len(params) != 0:
+        raise AgentException(E_ARGS_UNEXPECTED, params.keys())
       return ret
 
     @expose('GET')
@@ -228,13 +385,15 @@ class WebServersAgent():
 
     @expose('POST')
     def createWebServer(self, kwargs):
-      """Create the WebServer"""
-      try: kwargs = self._webserver_get_params(kwargs)
-      except AgentException as e:
-        return HttpErrorResponse(e.message)
-      else:
+        """Create the WebServer"""
         with self.web_lock:
-          return self._create(kwargs, self.webserver_file, self.WebServer)
+            try:
+                kwargs = self._webserver_get_params(kwargs)
+                self.logger.debug('Created web with id = %s' % kwargs['role_id'])
+            except AgentException as e:
+                return HttpErrorResponse(e.message)
+            else:
+                return self._create(kwargs, self.webserver_file, self.WebServer)
 
     @expose('POST')
     def updateWebServer(self, kwargs):
@@ -254,35 +413,51 @@ class WebServersAgent():
       with self.web_lock:
         return self._stop(kwargs, self.webserver_file, self.WebServer)
 
-    def _httpproxy_get_params(self, kwargs):
+    def _httpproxy_get_params(self, params):
       ret = {}
-      if 'port' not in kwargs:
+      
+      ##### FT_start
+      if 'role_id' in params:
+          ret['role_id'] = int(params.pop('role_id'))
+
+      if 'state' in params:
+          state_file = params.pop('state')
+          state = zipfile.ZipFile(state_file.file, 'r')
+          state.extractall(self.config_parser.get('agent', 'VAR_CACHE'))
+          ret['state'] = True
+          return ret
+      ##### FT_end
+      
+      if 'port' not in params:
         raise AgentException(E_ARGS_MISSING, 'port')
-      if not isinstance(kwargs['port'], int):
+      if not isinstance(params['port'], int):
         raise AgentException(E_ARGS_INVALID, detail='Invalid "port" value')
-      ret['port'] = int(kwargs.pop('port'))
+      ret['port'] = int(params.pop('port'))
   
-      if 'code_version' not in kwargs:
+      if 'code_version' not in params:
         raise AgentException(E_ARGS_MISSING, 'code_version')
-      ret['code_version'] = kwargs.pop('code_version')
+      ret['code_version'] = params.pop('code_version')
   
-      if 'web_list' in kwargs:
-        web_list = kwargs.pop('web_list')
+      if 'web_list' in params:
+        web_list = params.pop('web_list')
       else:
         web_list = []
-      if len(web_list) == 0:
-        raise AgentException(E_ARGS_INVALID, detail='At least one web_list is required')
+      #if len(web_list) == 0:
+      #  raise AgentException(E_ARGS_INVALID, detail='At least one web_list is required')
       ret['web_list'] = web_list
   
-      if 'fpm_list' in kwargs:
-        ret['fpm_list'] = kwargs.pop('fpm_list')
+      if 'fpm_list' in params:
+        ret['fpm_list'] = params.pop('fpm_list')
   
-      if 'tomcat_list' in kwargs:
-        ret['tomcat_list'] = kwargs.pop('tomcat_list')
-        if 'tomcat_servlets' in kwargs:
-          ret['tomcat_servlets'] = kwargs.pop('tomcat_servlets')
+      if 'tomcat_list' in params:
+        ret['tomcat_list'] = params.pop('tomcat_list')
+        if 'tomcat_servlets' in params:
+          ret['tomcat_servlets'] = params.pop('tomcat_servlets')
+  
+      if len(params) != 0:
+        raise AgentException(E_ARGS_UNEXPECTED, params.keys())
 
-      ret['cdn'] = kwargs.get('cdn', None)
+      ret['cdn'] = params.get('cdn', None)
       return ret
 
     @expose('GET')
@@ -295,13 +470,15 @@ class WebServersAgent():
 
     @expose('POST')
     def createHttpProxy(self, kwargs):
-      """Create the HttpProxy"""
-      try: kwargs = self._httpproxy_get_params(kwargs)
-      except AgentException as e:
-        return HttpErrorResponse(e.message)
-      else:
+        """Create the HttpProxy"""
         with self.httpproxy_lock:
-          return self._create(kwargs, self.httpproxy_file, self.HttpProxy)
+            try:
+                kwargs = self._httpproxy_get_params(kwargs)
+                self.logger.debug('Created proxy with id = %s' % kwargs['role_id'])
+            except AgentException as e:
+                return HttpErrorResponse(e.message)
+            else:
+                return self._create(kwargs, self.httpproxy_file, self.HttpProxy)
 
     @expose('POST')
     def updateHttpProxy(self, kwargs):
@@ -325,24 +502,38 @@ class WebServersAgent():
         return self._stop(kwargs, self.httpproxy_file, self.HttpProxy)
 
 
-    def _php_get_params(self, kwargs):
+    def _php_get_params(self, params):
       ret = {}
-      if 'port' not in kwargs:
+
+      ##### FT_start
+      if 'role_id' in params:
+          ret['role_id'] = int(params.pop('role_id'))
+
+      if 'state' in params:
+          state_file = params.pop('state')
+          state = zipfile.ZipFile(state_file.file, 'r')
+          state.extractall(self.config_parser.get('agent', 'VAR_CACHE'))
+          ret['state'] = True
+          return ret
+      ##### FT_end
+      
+      if 'port' not in params:
         raise AgentException(E_ARGS_MISSING, 'port')
-      if not isinstance(kwargs['port'], int):
+      if not isinstance(params['port'], int):
         raise AgentException(E_ARGS_INVALID, detail='Invalid "port" value')
-      ret['port'] = int(kwargs.pop('port'))
-      if 'scalaris' not in kwargs:
+      ret['port'] = int(params.pop('port'))
+      if 'scalaris' not in params:
         raise AgentException(E_ARGS_MISSING, 'scalaris')
-      ret['scalaris'] = kwargs.pop('scalaris')
-      if 'configuration' not in kwargs:
+      ret['scalaris'] = params.pop('scalaris')
+      if 'configuration' not in params:
         raise AgentException(E_ARGS_MISSING, 'configuration')
-      if not isinstance(kwargs['configuration'], dict):
+      if not isinstance(params['configuration'], dict):
         raise AgentException(E_ARGS_INVALID, detail='invalid "configuration" object')
-      ret['configuration'] = kwargs.pop('configuration')
+      ret['configuration'] = params.pop('configuration')
   
-      if len(kwargs) != 0:
-        raise AgentException(E_ARGS_UNEXPECTED, kwargs.keys())
+      if len(params) != 0:
+        raise AgentException(E_ARGS_UNEXPECTED, params.keys())
+      
       return ret
 
     @expose('GET')
@@ -362,13 +553,15 @@ class WebServersAgent():
 
     @expose('POST')
     def createPHP(self, kwargs):
-      """Create the PHPProcessManager"""
-      try: kwargs = self._php_get_params(kwargs)
-      except AgentException as e:
-        return HttpErrorResponse(e.message)
-      else:
+        """Create the PHPProcessManager"""
         with self.php_lock:
-          return self._create(kwargs, self.php_file, role.PHPProcessManager)
+            try:
+                kwargs = self._php_get_params(kwargs)
+                self.logger.debug('Created php with id = %s' % kwargs['role_id'])
+            except AgentException as e:
+                return HttpErrorResponse(e.message)
+            else:
+                return self._create(kwargs, self.php_file, role.PHPProcessManager)
 
     @expose('POST')
     def updatePHP(self, kwargs):
@@ -395,6 +588,7 @@ class WebServersAgent():
       devnull_fd = open(devnull, 'w')
       proc = Popen([cmd_path, dir, script_path], stdout=devnull_fd, stderr=devnull_fd, close_fds=True)
       proc.wait()
+      devnull_fd.close()
       #if proc.wait() != 0:
       #  self.logger.exception('Failed to start the script to fix the session handlers')
       #  raise OSError('Failed to start the script to fix the session handlers')
@@ -510,3 +704,23 @@ class WebServersAgent():
         source.extractall(target_dir)
 
       return HttpJsonResponse()
+
+    ##### FT_start
+    def createManager(self, params):
+        with self.manager_lock:
+            self.manager_process = True
+            # extract manager-config.cfg and state
+            state_file = params.pop('state')
+            state = zipfile.ZipFile(state_file.file, 'r')
+            state.extractall(self.CPS_HOME)
+            # TODO: Replace in manager-config.cfg the MY_IP variable
+
+            # start manager
+            cmd_path = join(self.CPS_HOME, 'scripts', 'manager', 'php-manager-restart')
+            devnull_fd = open(devnull, 'w')
+            proc = Popen([cmd_path], stdout=devnull_fd, stderr=devnull_fd, close_fds=True)
+            proc.wait()
+            devnull_fd.close()
+	    
+            return HttpJsonResponse()
+    ##### FT_stop

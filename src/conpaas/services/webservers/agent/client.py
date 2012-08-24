@@ -57,11 +57,12 @@ def getWebServerState(host, port):
   method = 'getWebServerState'
   return _check(_jsonrpc_get(host, port, '/', method))
 
-def createWebServer(host, port, web_port, code_versions):
+def createWebServer(host, port, web_port, code_versions, role_id):
   method = 'createWebServer'
   params = {
     'port': web_port,
     'code_versions': code_versions,
+    'role_id': role_id
   }
   return _check(_jsonrpc_post(host, port, '/', method, params=params))
 
@@ -81,11 +82,12 @@ def getHttpProxyState(host, port):
   method = 'getHttpProxyState'
   return _check(_jsonrpc_get(host, port, '/', method))
 
-def createHttpProxy(host, port, proxy_port, code_version, cdn, web_list=[], fpm_list=[], tomcat_list=[], tomcat_servlets=[]):
+def createHttpProxy(host, port, proxy_port, code_version, role_id, cdn, web_list=[], fpm_list=[], tomcat_list=[], tomcat_servlets=[]):
   method = 'createHttpProxy'
   params = {
     'port': proxy_port,
     'code_version': code_version,
+    'role_id': role_id
   }
   if web_list: params['web_list'] = web_list
   if fpm_list: params['fpm_list'] = fpm_list
@@ -121,12 +123,13 @@ def checkAgentState(host, port):
   method = 'checkAgentState'
   return _check(_jsonrpc_get(host, port, '/', method))
 
-def createPHP(host, port, php_port, scalaris, php_conf):
+def createPHP(host, port, php_port, scalaris, php_conf, role_id):
   method = 'createPHP'
   params = {
     'port': php_port,
     'scalaris': scalaris,
     'configuration': php_conf,
+    'role_id': role_id
   }
   return _check(_jsonrpc_post(host, port, '/', method, params=params))
 

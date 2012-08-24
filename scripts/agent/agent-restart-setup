@@ -1,0 +1,10 @@
+#!/bin/bash
+
+ROOT_DIR=/root
+CPS_HOME=$ROOT_DIR/ConPaaS
+
+LOG_FILE=/var/log/cpsagent.log
+ETC=/etc/cpsagent
+VAR_TMP=/var/tmp/cpsagent
+VAR_CACHE=/var/cache/cpsagent
+VAR_RUN=/var/run/cpsagent

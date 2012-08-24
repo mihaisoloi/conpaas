@@ -268,6 +268,42 @@ apt-get -f -y update
 # remove cached .debs from /var/cache/apt/archives to save disk space
 apt-get clean
 
+# add misc
+DEBIAN_FRONTEND=noninteractive apt-get -y --force-yes --no-install-recommends --no-upgrade  \
+                install vim 
+
+# Install Python3.2 
+DEBIAN_FRONTEND=noninteractive apt-get -y --force-yes --no-install-recommends --no-upgrade  \
+                install zlib1g-dev libncurses-dev libbz2-dev libreadline-dev sqlite3        \
+                libsqlite3-dev libssl-dev libgdbm-dev tk-dev bzip2 
+
+wget http://www.python.org/ftp/python/3.2.3/Python-3.2.3.tar.bz2
+tar xvfj Python-3.2.3.tar.bz2 
+cd Python-3.2.3
+
+./configure
+make
+make install
+
+cd ..
+
+# Install PycURL 7.19.2 for Python3.2 
+DEBIAN_FRONTEND=noninteractive apt-get -y --force-yes --no-install-recommends --no-upgrade  \
+                install libcurl4-gnutls-dev patch
+
+svn checkout svn://svn.forge.objectweb.org/svnroot/contrail/trunk/conpaas/conpaas-services/contrib/pycurl/ pycurl-temp
+cd pycurl-temp
+tar -xvzf pycurl-7.19.2.tar.gz
+cd pycurl
+cp ../mypycurl.patch .
+patch -p0 < mypycurl.patch
+2to3 -w .
+python3.2 setup.py build
+python3.2 setup.py install
+
+cd ../..
+rm -rf pycurl-temp
+
 # create directory structure
 echo > /var/log/cpsagent.log
 mkdir /etc/cpsagent/

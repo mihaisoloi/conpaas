@@ -116,10 +116,10 @@ class AbstractRequestHandler(BaseHTTPRequestHandler):
       return
     
     ## if whitelist specified
-    if self.server.whitelist_addresses \
-    and self.client_address[0] not in self.server.whitelist_addresses:
-      self.send_custom_response(httplib.FORBIDDEN)
-      return
+    #if self.server.whitelist_addresses \
+    #and self.client_address[0] not in self.server.whitelist_addresses:
+    #  self.send_custom_response(httplib.FORBIDDEN)
+    #  return
     
     # require content-type header
     if 'content-type' not in self.headers:
@@ -198,6 +198,7 @@ class AbstractRequestHandler(BaseHTTPRequestHandler):
       try:
         response = self._do_dispatch(callback_type, callback_name, callback_params)
         if isinstance(response, HttpFileDownloadResponse):
+	  #self.send_file_response(httplib.OK, response.file, {'Content-disposition': 'attachement; filename="%s"' % (response.filename), 'Content-type':'application/zip', 'Content-Transfer-Encoding': 'binary'})
           self.send_file_response(httplib.OK, response.file, {'Content-disposition': 'attachement; filename="%s"' % (response.filename)})
         elif isinstance(response, HttpErrorResponse):
           self.send_custom_response(httplib.OK, json.dumps({'error': response.message, 'id': request_id}))
@@ -221,16 +222,20 @@ class AbstractRequestHandler(BaseHTTPRequestHandler):
       print >>self.wfile, body,
   
   def send_file_response(self, code, filename, headers=None):
-    fd = open(filename)
-    stat = os.fstat(fd.fileno())
-    self.send_response(code)
-    for h in headers:
-      self.send_header(h, headers[h])
-    self.send_header('Content-length', stat.st_size)
-    self.end_headers()
-    while fd.tell() != stat.st_size:
-      print >>self.wfile, fd.read(),
-    fd.close()
+    try:
+      fd = open(filename)
+      stat = os.fstat(fd.fileno())
+      self.send_response(code)
+      for h in headers:
+        self.send_header(h, headers[h])
+      self.send_header('Content-length', stat.st_size)
+      self.end_headers()
+      while fd.tell() != stat.st_size:
+        print >>self.wfile, fd.read(),
+      fd.close()
+    except Exception as e:
+      print e
+      sys.stdout.flush()
   
   def send_method_missing(self, method, params):
     self.send_custom_response(httplib.BAD_REQUEST, 'Did not specify method')

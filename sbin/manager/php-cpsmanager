@@ -53,11 +53,10 @@ if __name__ == '__main__':
   parser.add_option('-b', '--bind', type='string', default='0.0.0.0', dest='address')
   parser.add_option('-c', '--config', type='string', default=None, dest='config')
   parser.add_option('-s', '--scalaris', type='string', default=None, dest='scalaris')
+  parser.add_option('-t', '--state', type='string', default=None, dest='state')
+  parser.add_option('-r', '--reset', action='store_true', default=False, dest='reset_config')
+  parser.add_option('-m', '--managerstate', type='string', default=None, dest='crt_state')
   options, args = parser.parse_args()
-  
-  if options.scalaris == None:
-    print >>sys.stderr, 'Scalaris IP is required'
-    sys.exit(1)
   
   if not options.config or not exists(options.config):
     print >>sys.stderr, 'Failed to find configuration file'
@@ -89,10 +88,20 @@ if __name__ == '__main__':
         config_ok = False
   if not config_ok:
     sys.exit(1)
-  
+ 
+  #### FT_start
+  if options.scalaris == None:
+    # The default address is the manager's
+    scalaris = config_parser.get('manager', 'MY_IP')
+  else:
+    scalaris = options.scalaris
+  #### FT_stop
+
   print options.address, options.port
   d = ManagerServer((options.address, options.port),
                      config_parser,
-                     reset_config=True, 
-                     scalaris=options.scalaris)
+                     reset_config=options.reset_config, 
+                     scalaris=scalaris,
+		     state=options.state,
+		     crt_state=options.crt_state)
   d.serve_forever()

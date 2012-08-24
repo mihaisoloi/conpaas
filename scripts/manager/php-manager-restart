@@ -16,8 +16,14 @@ VAR_TMP=/var/tmp/cpsmanager
 VAR_CACHE=/var/cache/cpsmanager
 VAR_RUN=/var/run/cpsmanager
 
-wget -P $ROOT_DIR/ $SOURCE/ConPaaS.tar.gz
-tar -zxf $ROOT_DIR/ConPaaS.tar.gz -C $ROOT_DIR/
 export PYTHONPATH=$CPS_HOME/src/:$CPS_HOME/contrib/
 
-mkdir /root/keystore
+/etc/init.d/memcached start
+/usr/bin/scalarisctl -d -f -s start
+
+# Enable GIT-based code uploads
+. $CPS_HOME/scripts/manager/default-git-deploy-hook 
+
+$CPS_HOME/sbin/manager/php-cpsmanager -p 80 -c $CPS_HOME/manager-config.cfg -t $CPS_HOME/state.pickle -m $CPS_HOME/crt_state.txt 1>$ROOT_DIR/manager.out 2>$ROOT_DIR/manager.err &
+manager_pid=$!
+echo $manager_pid > $ROOT_DIR/manager.pid
