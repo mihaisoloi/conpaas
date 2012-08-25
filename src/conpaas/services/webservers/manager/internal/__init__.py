@@ -159,6 +159,9 @@ class BasicWebserversManager(AbstractManager):
     # Protects config
     self.config_lock = Lock()
 
+    #Protecting self.agent_process
+    self.agent_process_lock = Lock()
+
   def _state_get(self):
     return self.memcache.get(self.DEPLOYMENT_STATE)
 
@@ -377,8 +380,8 @@ class BasicWebserversManager(AbstractManager):
       if len(kwargs) != 0:
         return HttpErrorResponse(ManagerException(ManagerException.E_ARGS_UNEXPECTED, kwargs.keys()).message)
     
-      if (proxy + config.proxy_count) > 1 and ( (web + config.web_count) == 0 or (backend + config.backend_count) == 0 ):
-        return HttpErrorResponse(ManagerException(ManagerException.E_ARGS_INVALID, detail='Cannot add more proxy servers without at least one "web" and one "backend"').message)
+      #if (proxy + config.proxy_count) > 1 and ( (web + config.web_count) == 0 or (backend + config.backend_count) == 0 ):
+      #  return HttpErrorResponse(ManagerException(ManagerException.E_ARGS_INVALID, detail='Cannot add more proxy servers without at least one "web" and one "backend"').message)
       self._configuration_set(config)
     
     self._state_set(self.S_ADAPTING, msg='Going to add proxy=%d, web=%d, backend=%d' % (proxy, web, backend))
@@ -764,7 +767,6 @@ class BasicWebserversManager(AbstractManager):
                   my_node = node
                   break
           if my_node is None:
-              print 'Nu a fost gasit niciun nod.'
               # No existing node found; maybe the role was started on the manager itself.
               try:
                   if role_ip == self.my_ip:
@@ -778,7 +780,7 @@ class BasicWebserversManager(AbstractManager):
               my_node.isRunningProxy = True
           if role_name == 'web':
               if my_node.isRunningWeb:
-              # I already know about this
+                  # I already know about this
 	          print 'I already know about this'
                   return HttpJsonResponse({})
               my_node.isRunningWeb = True
@@ -786,7 +788,7 @@ class BasicWebserversManager(AbstractManager):
               self._update_proxy(config, [ i for i in config.serviceNodes.values() if i.isRunningProxy])
           if role_name == 'php':
               if my_node.isRunningBackend:
-              # I already know about this
+                  # I already know about this
                   return HttpJsonResponse({})
               my_node.isRunningBackend = True
               config.update_mappings()
@@ -821,37 +823,41 @@ class BasicWebserversManager(AbstractManager):
               return self.add_nodes({'web':1}) 
           if role_name == 'proxy':
               return self.add_nodes({'proxy':1})
+   
+      with self.agent_process_lock:
+          if self.agent_process == False:
+              # Start the agent
+              context = self.controller.generate_context_ft('web')
+              # start the agent process 
+              devnull_fd = open(os.path.devnull, 'w')
+              proc = Popen(context, stdout=devnull_fd, stderr=devnull_fd, close_fds=True, shell=True)
+              proc.wait()
+              devnull_fd.close()
+              # Wait until agent process started
+              up = False
+              while up == False:
+                  try:
+                      up = client.checkAgentState(self.my_ip, 5555)
+                  except:
+                      up = False
+              self.agent_process = True
 
-      if self.agent_process == False:
-          # Start the agent
-          context = self.controller.generate_context_ft('web')
-          # start the agent process 
-          devnull_fd = open(os.path.devnull, 'w')
-          proc = Popen(context, stdout=devnull_fd, stderr=devnull_fd, close_fds=True, shell=True)
-          proc.wait()
-          devnull_fd.close()
-          # Wait until agent process started
-          up = False
-          while up == False:
-              try:
-                  up = client.checkAgentState(self.my_ip, 5555)
-              except:
-                  up = False
-          self.agent_process = True
+      try:
+          with self.config_lock:
+              config = self._configuration_get()
+          from conpaas.core.node import ServiceNode
+          manager_node = ServiceNode(0, self.my_ip, self.my_ip, None)
 
-      with self.config_lock:
-        config = self._configuration_get()
-      from conpaas.core.node import ServiceNode
-      manager_node = ServiceNode(0, self.my_ip, self.my_ip, None)
-
-      # Tell the agent to start the role_name
-      if role_name == 'php':
-          self._start_backend(config, [manager_node], role_id)
-      elif role_name == 'web':
-          self._start_web(config, [manager_node], role_id)
+          # Tell the agent to start the role_name
+          if role_name == 'php':
+              self._start_backend(config, [manager_node], role_id)
+          elif role_name == 'web':
+              self._start_web(config, [manager_node], role_id)
     
-      if config.currentCodeVersion != None:
-          self._update_code(config, [ manager_node ])
+          if config.currentCodeVersion != None:
+              self._update_code(config, [ manager_node ])
+      except Exception as e:
+          self.logger.debug(e)
 
       return HttpJsonResponse({})
   ##### FT_stop
