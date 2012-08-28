@@ -8,7 +8,9 @@
 '''
 
 import threading
+import time
 import os
+
 
 from conpaas.core.expose import expose
 from conpaas.core.controller import Controller
@@ -71,9 +73,9 @@ class Node(object):
         self._keys_lock = rwlock.ReadWriteLock()
 
         # Start the periodic functions:
-        TaskThread(self._stabilize, 0.5).start()
-        TaskThread(self._update_keys, 0.5).start()
-        #TaskThread(self._print_tables, 5).start()
+        TaskThread(self._stabilize, 1).start()
+        TaskThread(self._update_keys, 1).start()
+        #TaskThread(self._print_tables, 2).start()
 
 
     def _update_all(self, id):
@@ -88,6 +90,7 @@ class Node(object):
                 # (it's called in _find_successor and in stabilize, two separate threads)
                 # so we have this "if" to check if the successor we try to remove
                 # has already been removed
+                print '[update_all] id = %s' % id
                 self.successor_list.pop(0)
                 self.fingers[0] = self.successor_list[0]
                 for i in range(SIZE):
@@ -95,6 +98,9 @@ class Node(object):
                         self.fingers[i] = None
                 if id in self.routing_table:
                     del self.routing_table[id]
+                print self.successor_list
+                print self.routing_table
+                sys.stdout.flush()
 
     def _create_successor_list(self):
         '''
@@ -151,7 +157,8 @@ class Node(object):
                     return id, address
                 except Exception as e:
                     # successor failed, update all
-                    print 'Successor %s failed' % self.successor_list[0]
+                    print 'Successor %s failed' % successor
+		    sys.stdout.flush()
                     self._update_all(successor)
                 with self._lock.readlock:
                     successor = self.successor_list[0]
@@ -177,8 +184,9 @@ class Node(object):
             @return ip_address, port, id of the requested node
             '''
             id = int(params['id'])
-            #print 'FS Searching for: %s' % id
+            #print '[find_successor] id = %s' % str(id)
             #print 'FS successor: %s' % self.successor_list[0]
+            #sys.stdout.flush()
             #print 'FS predecessor: %s' % self.predecessor
             #print 'FS successor_list: %s' % self.successor_list
             #print 'FS fingers: %s' % self.fingers
@@ -240,7 +248,8 @@ class Node(object):
                 return id, address
             except Exception as e:
                 # successor failed, update list and self.successor
-                print '**** Successor %s failed' % self.successor_list[0]
+                print '**** Successor %s failed' % successor 
+                sys.stdout.flush()
                 self._update_all(successor)
         return None, None
 
@@ -384,9 +393,12 @@ class Node(object):
                     client.put(address, key, tmp_path)
                     os.remove(tmp_path)
                 print 'Key %s successfully stored into the system' % key
+		sys.stdout.flush()
                 return HttpJsonResponse({})
             except Exception as e:
-                print e
+                print '[put] exception, waiting...'
+                sys.stdout.flush()
+                time.sleep(0.5)
                 pass
 
     @expose('GET')
@@ -394,6 +406,7 @@ class Node(object):
         key = params['key']
         while True:
             try:
+                sys.stdout.flush()
                 id, address = client.find_successor(self.my_address, int(key))
                 if id == self.my_id:
                     filepath = os.path.join(keystore_path, str(key))
@@ -403,11 +416,17 @@ class Node(object):
                     fd = open(filepath, 'wb')
                     fd.write(file_bytes)
                 return HttpFileDownloadResponse('state.zip', filepath)
-            except:
+            except Exception as e:
+                # Wait for it to self-stabilize, otherwise it will fill the maximum number of threads on the server
+                print '[get] exception, waiting...'
+                sys.stdout.flush()
+                time.sleep(0.5)
                 pass
     
     @expose('GET')
     def get_successors(self, params):
+        print '[get_successors]'
+        sys.stdout.flush()
         successors = []
         with self._lock.readlock:
             for successor in self.successor_list:
