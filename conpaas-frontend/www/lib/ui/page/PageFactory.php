@@ -72,6 +72,9 @@ class PageFactory {
 			case 'htcondor':
 				require_module('ui/page/htcondor');
 				return new HTCondorPage($service);
+			case 'faulttolerance':
+				require_module('ui/page/faulttolerance');
+				return new FaultTolerancePage($service);
 /* BLUE_PRINT_INSERT		do not remove this line: it is a placeholder for installing new services */
 			default:
 				throw new Exception('Unknown service type');

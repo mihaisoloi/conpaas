@@ -98,7 +98,9 @@ function startServices(specs) {
 			xtreemfs_start(id);
 		} else if (services[id].Type == "taskfarm") {
 			taskfarm_start(id);
-		} else {
+		} else if (services[id].Type == "faulttolerance") {
+            faulttolerance_start(id);
+        }else {
 			alert("Error, type " + services[id].Type + " unknown");
 			service_up--;
 		}

@@ -79,6 +79,9 @@ class ServiceFactory {
 			case 'htcondor':
 				require_module('service/htcondor');
 				return new HTCondorService($service_data, $manager);
+			case 'faulttolerance':
+				require_module('service/faulttolerance');
+				return new FaultToleranceService($service_data, $manager);
 /* BLUE_PRINT_INSERT		do not remove this line: it is a placeholder for installing new services */
 			default:
 				throw new Exception('Unknown service type');
