@@ -74,7 +74,7 @@ class Controller(object):
                                             'CA_URL')
 
         # used to identify services
-        self.service_type = self.config_parser.get('manager', 'TYPE')
+        self.service_type = config_parser.get('manager', 'TYPE')
 
         # Set the CA URL as IPOP's base namespace
         self.__ipop_base_namespace = self.__conpaas_caUrl
