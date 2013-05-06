@@ -66,7 +66,8 @@ class BaseAgent(object):
         ipop.configure_conpaas_node(config_parser)
     
         # Ganglia setup
-        self.ganglia = AgentGanglia(config_parser)
+        service_cluster = '%s-u%s-s%s' % (service_type,user_id,service_id)
+        self.ganglia = AgentGanglia(config_parser, service_cluster)
 
         try:
             self.ganglia.configure()

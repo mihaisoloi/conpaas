@@ -54,7 +54,13 @@ class BaseManager(object):
     get_startup_script() -- GET
     """
 
-    def __init__(self, config_parser):
+    def __init__(self, config_parser, ganglia_manager = ManagerGanglia):
+        """ Initializes a service manager
+
+            @param config_parser: sets up the service
+
+            @param service_cluster: needed for Ganglia
+        """
         self.logger = create_logger(__name__)
         self.controller = Controller(config_parser)
         self.logfile = config_parser.get('manager', 'LOG_FILE')
@@ -64,7 +70,11 @@ class BaseManager(object):
         ipop.configure_conpaas_node(config_parser)
 
         # Ganglia setup
-        ganglia = ManagerGanglia(config_parser)
+        service_cluster = '%s-u%s-s%s' % (self.controller.service_type,
+                self.controller.Controller__conpaas_user_id,
+                self.controller.Controller__conpaas_service_id)
+
+        ganglia = ganglia_manager(config_parser, service_cluster)
 
         try:
             ganglia.configure()
@@ -78,6 +88,9 @@ class BaseManager(object):
             self.logger.exception(err)
         else:
             self.logger.info('Ganglia started successfully')
+
+    def __register_service(self):
+        return ''
 
     @expose('GET')
     def getLog(self, kwargs):

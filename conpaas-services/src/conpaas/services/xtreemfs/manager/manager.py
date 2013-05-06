@@ -73,7 +73,13 @@ class XtreemFSManager(BaseManager):
                  **kwargs):     # anything you can't send in config_parser
 
         BaseManager.__init__(self, config_parser)
+        self._init_values()
 
+        # Setup the clouds' controller
+        self.controller.generate_context('xtreemfs')
+        self.state = self.S_INIT
+
+    def _init_values(self):
         # node lists
         self.nodes = []    # all nodes         
         self.osdNodes = [] # only the OSD nodes  
@@ -84,10 +90,6 @@ class XtreemFSManager(BaseManager):
         self.dirCount = 0
         self.mrcCount = 0
         self.osdCount = 0
-
-        # Setup the clouds' controller
-        self.controller.generate_context('xtreemfs')
-        self.state = self.S_INIT
 
     @expose('POST')
     def startup(self, kwargs):

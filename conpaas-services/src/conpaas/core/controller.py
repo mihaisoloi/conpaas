@@ -73,6 +73,9 @@ class Controller(object):
         self.__conpaas_caUrl = config_parser.get('manager',
                                             'CA_URL')
 
+        # used to identify services
+        self.service_type = self.config_parser.get('manager', 'TYPE')
+
         # Set the CA URL as IPOP's base namespace
         self.__ipop_base_namespace = self.__conpaas_caUrl
 
@@ -202,10 +205,9 @@ class Controller(object):
                 if iteration == 1:
                     request_start = time.time()
 
-                service_type = self.config_parser.get('manager', 'TYPE')
 
                 # eg: conpaas-agent-php-u34-s316
-                name = "conpaas-%s-%s-u%s-s%s" % (self.role, service_type,
+                name = "conpaas-%s-%s-u%s-s%s" % (self.role, self.service_type,
                        self.__conpaas_user_id, self.__conpaas_service_id)
 
                 if self.__ipop_base_ip and self.__ipop_netmask:

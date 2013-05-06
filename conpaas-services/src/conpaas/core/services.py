@@ -57,6 +57,9 @@ manager_services = {'php'    : {'class' : 'PHPManager',
                                   'module': 'conpaas.services.selenium.manager.manager'},
                     'htcondor' : {'class' : 'HTCondorManager',
                                   'module': 'conpaas.services.htcondor.manager.manager'},
+                    'faulttolerance' : {'class' : 'FaultToleranceManager',
+                                  'module': 'conpaas.services.faulttolerance.manager'},
+
 #""" BLUE_PRINT_INSERT_MANAGER 		do not remove this line: it is a placeholder for installing new services """
 		    }
 
