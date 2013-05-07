@@ -101,7 +101,7 @@ $page = new Page();
                   <td class="info"> distributed file system </td>
               </tr>
                <tr class="service">
-                  <td class="description"> <img src="images/xtreemfs.png" height="32" /></td>
+                  <td class="description"> <img src="images/faulttolerance.png" height="32" /></td>
                   <td class="radio"><input type="radio" name="type" value="faulttolerance" />faulttolerance</td>
                   <td class="info"> ConPaaS Fault Tolerance </td>
               </tr>
