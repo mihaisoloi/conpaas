@@ -1,5 +1,5 @@
 from conpaas.core.node import ServiceNode
-from .conftest import cloud_names
+from tests.conftest import cloud_names
 
 def test_cloud_type(cloud):
     """checks that the cloud type is the right one"""

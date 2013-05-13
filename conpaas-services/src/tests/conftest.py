@@ -8,6 +8,7 @@ from libcloud.compute.drivers.opennebula import OpenNebulaNodeDriver
 from mock import Mock
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
+from conpaas.core.controller import Controller
 
 cloud_names = ["dummy", "ec2", "opennebula"]
 #TODO: cloud_name should be actual name
@@ -36,6 +37,26 @@ def mocked_driver():
     return Mock(**attrs)
 
 
+@pytest.fixture(scope='module')
+def controller(cloud):
+    ''' Params needed for initialisation of the controller '''
+    if (cloud.get_cloud_type() == 'dummy'):
+        return None
+    conf = config_parser(cloud.get_cloud_type())
+    simple_config(conf)
+    controller = Controller(conf)
+    #we don't need timer for testing
+    controller._Controller__reservation_map['manager'].stop()
+    mockedController = Mock(spec=controller)
+    #for testing purposes
+    mockedController.deduct_credit.return_value = True
+    mockedController._Controller__default_cloud = cloud
+    mockedController._Controller__wait_for_nodes.return_value = \
+        (mockedController._Controller__default_cloud.driver.list_nodes(), [])
+    mockedController.generate_context.return_value = True
+    return mockedController
+
+
 def config_parser(name):
     iaas_config = ConfigParser()
     def __check_params(params):
@@ -62,6 +83,23 @@ def config_parser(name):
             "conpaas-services/config/cloud/opennebula.cfg.example")
         __check_params(nebula_params)
     return iaas_config
+
+
+def simple_config(config_parser):
+    ''' adding manager section for Controller '''
+    config_parser.add_section('manager')
+    config_parser.set('manager', 'TYPE', 'helloworld')
+    config_parser.set('manager', 'SERVICE_ID', '1')
+    config_parser.set('manager', 'USER_ID', '123')
+    config_parser.set('manager', 'CREDIT_URL',
+                      'https://localhost:5555/credit')
+    config_parser.set('manager', 'TERMINATE_URL',
+                      'https://localhost:5555/terminate')
+    config_parser.set('manager', 'CA_URL',
+                      'https://localhost:5555/ca')
+    config_parser.set('manager', 'APP_ID', '1')
+    config_parser.set('manager', 'LOG_FILE', '~/manager.log')
+    config_parser.set('manager', 'CONPAAS_HOME', '~')
 
 
 @pytest.fixture(scope="module", params=cloud_names)

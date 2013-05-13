@@ -112,7 +112,7 @@ class ManagerGanglia(BaseGanglia):
 
     def __init__(self, config_parser, service_cluster):
         """Same as for the base case, but with localhost as manager_ip"""
-        BaseGanglia.__init__(self)
+        BaseGanglia.__init__(self, service_cluster)
 
         self.manager_ip = '127.0.0.1'
         self.cps_home = config_parser.get('manager', 'CONPAAS_HOME')
@@ -181,8 +181,8 @@ class AgentGanglia(BaseGanglia):
 
 class FaultToleranceGanglia(ManagerGanglia):
 
-    def __init__(self, config_parser):
-        ManagerGanglia.__init__(self, 'faulttolerance-xtreemfs')
+    def __init__(self, config_parser, service_cluster):
+        ManagerGanglia.__init__(self, config_parser, service_cluster)
 
     def configure(self):
         """Configuring the FT gmetad and the ganglia communication"""

@@ -30,6 +30,7 @@ from cpsdirector import cloud as manager_controller
 from cpsdirector import common
 
 from conpaas.core.services import manager_services
+from conpaas.core.https.client import jsonrpc_post
 
 service_page = Blueprint('service_page', __name__)
 
@@ -154,6 +155,13 @@ def start(servicetype, cloudname="default"):
     try:
         s.manager, s.vmid, s.cloud = manager_controller.start(
             servicetype, s.sid, g.user.uid, cloudname, appid, vpn)
+
+        ft = get_faulttolerance(cloudname)
+        if ft:
+            #TODO: register the service if it's not a FT service(only one per cloud)
+            # has to make a request for registering via https
+            jsonrpc_post(ft.manager, 5555, '/', 'register',
+                         params = {'services': [s]})
     except Exception, err:
         try:
             db.session.delete(s)
@@ -222,6 +230,16 @@ def stop(serviceid):
     # If a service with id 'serviceid' exists and user is the owner
     service.stop()
     return build_response(simplejson.dumps(True))
+
+
+def get_faulttolerance(cloudname="default"):
+    '''
+       Gets the details of the faulttolerance service on the specific cloud
+    '''
+    if cloudname == "default":
+        cloudname = "iaas"
+    return [ser for ser in Service.query.filter_by(type="faulttolerance",
+                                                   cloud = cloudname)][0]
 
 @service_page.route("/list", methods=['POST', 'GET'])
 @cert_required(role='user')

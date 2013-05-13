@@ -71,8 +71,8 @@ class BaseManager(object):
 
         # Ganglia setup
         service_cluster = '%s-u%s-s%s' % (self.controller.service_type,
-                self.controller.Controller__conpaas_user_id,
-                self.controller.Controller__conpaas_service_id)
+                self.controller._Controller__conpaas_user_id,
+                self.controller._Controller__conpaas_service_id)
 
         ganglia = ganglia_manager(config_parser, service_cluster)
 
