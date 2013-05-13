@@ -157,10 +157,10 @@ def start(servicetype, cloudname="default"):
             servicetype, s.sid, g.user.uid, cloudname, appid, vpn)
 
         ft = get_faulttolerance(cloudname)
-        if ft:
+        if ft and len(ft) == 1: #only one ft manager per cloud
             #TODO: register the service if it's not a FT service(only one per cloud)
             # has to make a request for registering via https
-            jsonrpc_post(ft.manager, 5555, '/', 'register',
+            jsonrpc_post(ft[0].manager, 5555, '/', 'register',
                          params = {'services': [s]})
     except Exception, err:
         try:
@@ -239,7 +239,8 @@ def get_faulttolerance(cloudname="default"):
     if cloudname == "default":
         cloudname = "iaas"
     return [ser for ser in Service.query.filter_by(type="faulttolerance",
-                                                   cloud = cloudname)][0]
+                                                   cloud = cloudname)]
+
 
 @service_page.route("/list", methods=['POST', 'GET'])
 @cert_required(role='user')
