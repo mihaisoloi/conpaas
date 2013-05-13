@@ -9,6 +9,8 @@ from mock import Mock
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 from conpaas.core.controller import Controller
+from conpaas.core.ganglia import BaseGanglia
+
 
 cloud_names = ["dummy", "ec2", "opennebula"]
 #TODO: cloud_name should be actual name
@@ -135,3 +137,13 @@ def cloud(request, mocked_driver):
         mocked_driver.create_node.side_effect = __generate_nodes([3, 5])
         nebula.driver = mocked_driver
         return nebula
+
+@pytest.fixture(scope="module")
+def ganglia():
+    ''' Instantiating the ganglia module for testing the template '''
+    base = BaseGanglia('testing_cluster')
+    ganglia = Mock(spec = base)
+    ganglia.cps_home = 'conpaas-services/'
+    return ganglia
+
+

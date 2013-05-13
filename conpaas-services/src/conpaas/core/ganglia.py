@@ -73,7 +73,10 @@ class BaseGanglia(object):
             'modpython.conf')
         copy(src, self.GANGLIA_CONFD)
 
-        # Write gmond.conf
+        self.configure_monitor()
+
+    def configure_monitor(self):
+        ''' Write gmond.conf '''
         values = {
             'clusterName': self.cluster_name, 'setuid': self.setuid,
             'hostdmax': self.host_dmax, 'managerIp': self.manager_ip
@@ -126,7 +129,6 @@ class ManagerGanglia(BaseGanglia):
             'ganglia-gmetad.tmpl')).read()
         tmpl = Template(src, values)
 
-        tmpl.com
         open(self.GMETAD_CONF, 'w').write(str(tmpl))
 
     def _fe_config(self):
