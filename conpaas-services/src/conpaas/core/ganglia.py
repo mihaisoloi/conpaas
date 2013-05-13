@@ -187,8 +187,8 @@ class FaultToleranceGanglia(ManagerGanglia):
     def configure(self):
         """Configuring the FT gmetad and the ganglia communication"""
         BaseGanglia.configure(self)
-        self._meta_config({ 'gridName': self.clusterName,
-                            'clusterName': self.clusterName})
+        self._meta_config({ 'gridName': self.cluster_name,
+                            'clusterName': self.cluster_name})
         self._fe_config()
 
     def add_datasources(self, datasources):
@@ -199,8 +199,8 @@ class FaultToleranceGanglia(ManagerGanglia):
             @param datasources: list of Datasource objects
             @type datasources: L{conpaas.core.ganglia.Datasource}
         """
-        self._meta_config({ 'gridName': self.clusterName,
-                            'clusterName': self.clusterName,
+        self._meta_config({ 'gridName': self.cluster_name,
+                            'clusterName': self.cluster_name,
                             'datasources': datasources})
 
     def restart(self):
