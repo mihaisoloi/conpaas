@@ -180,7 +180,7 @@ def start(servicetype, cloudname="default"):
     db.session.commit()
 
     if ft: #only one ft manager per cloud
-       check_response(jsonrpc_post(ft[0].manager, 5555, '/', 'register',
+       check_response(jsonrpc_post(ft[0].manager, 443, '/', 'register',
                                    params = {'datasources':
                                    __all_services_to_datasources(cloudname)}))
 
