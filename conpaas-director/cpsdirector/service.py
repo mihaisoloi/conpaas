@@ -30,12 +30,19 @@ from cpsdirector import cloud as manager_controller
 from cpsdirector import common
 
 from conpaas.core.services import manager_services
-from conpaas.core.https.client import jsonrpc_post, check_response
+from conpaas.core.https.client import conpaas_init_ssl_ctx,\
+                                      jsonrpc_post, check_response
 
 service_page = Blueprint('service_page', __name__)
 
 # Manually add task farming to the list of valid services
 valid_services = manager_services.keys() + ['taskfarm', ]
+
+# need it now for comunicating with the ft service securely
+try:
+    conpaas_init_ssl_ctx('/etc/cpsdirector/certs', 'director')
+except Exception as e:
+    print e
 
 class Service(db.Model):
     sid = db.Column(db.Integer, primary_key=True,
