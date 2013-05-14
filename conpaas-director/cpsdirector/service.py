@@ -30,7 +30,7 @@ from cpsdirector import cloud as manager_controller
 from cpsdirector import common
 
 from conpaas.core.services import manager_services
-from conpaas.core.https.client import jsonrpc_post
+from conpaas.core.https.client import jsonrpc_post, check_response
 
 service_page = Blueprint('service_page', __name__)
 
@@ -172,9 +172,9 @@ def start(servicetype, cloudname="default"):
 
     ft = get_faulttolerance(cloudname)
     if ft and len(ft) == 1: #only one ft manager per cloud
-       jsonrpc_post(ft[0].manager, 5555, '/', 'register',
-                    params = {'datasources':
-                              __all_services_to_datasource(cloudname)})
+       check_response(jsonrpc_post(ft[0].manager, 5555, '/', 'register',
+                                   params = {'datasources':
+                                   __all_services_to_datasource(cloudname)}))
 
     log('%s (id=%s) created properly' % (s.name, s.sid))
     return build_response(jsonify(s.to_dict()))

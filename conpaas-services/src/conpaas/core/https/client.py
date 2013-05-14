@@ -75,7 +75,7 @@ from cStringIO import StringIO
 from urllib import urlencode
 
 from OpenSSL import SSL
-from httplib import HTTPConnection
+from httplib import HTTPConnection, OK
 
 from conpaas.core.misc import file_get_contents
 
@@ -451,6 +451,16 @@ def jsonrpc_post(host, port, uri, method, params={}):
     body = r.read()
     h.close()
     return r.status, body
+
+
+def check_response(response):
+    code, body = response
+    if code != OK: raise Exception('Received http response code %d' % (code))
+    try: data = json.loads(body)
+    except Exception as e: raise Exception(*e.args)
+    if data['error']: raise Exception(data['error'])
+    else: return data['result']
+
 
 if __name__ == "__main__":
     conpaas_init_ssl_ctx('/etc/conpaas-security/certs', 'manager')
