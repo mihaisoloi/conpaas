@@ -197,9 +197,9 @@ def __all_services_to_datasources(cloudname):
     if cloudname == "default":
         cloudname = "iaas"
     return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid), s.manager)
-            for s in Service.query.filter_by(type != "faulttolerance",
-                                             cloud = cloudname,
-                                             user_id = g.user.uid)]
+            for s in Service.query.filter_by(cloud = cloudname,
+                                             user_id = g.user.uid)
+            if s.type != "faulttolerance"]
 
 
 def get_faulttolerance(cloudname="default"):
