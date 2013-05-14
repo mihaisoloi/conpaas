@@ -131,9 +131,9 @@ def start(servicetype, cloudname="default"):
 
 
     def return_error(msg):
-        log(error_msg)
+        log(msg)
         return build_response(jsonify({ 'error': True,
-                                        'msg': error_msg }))
+                                        'msg': msg }))
 
 
     # Check if we got a valid service type
@@ -197,7 +197,7 @@ def __all_services_to_datasources(cloudname):
     if cloudname == "default":
         cloudname = "iaas"
     return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid), s.manager)
-            for s in Service.query.filter_by(type!="faulttolerance",
+            for s in Service.query.filter_by(type != "faulttolerance",
                                              cloud = cloudname,
                                              user_id = g.user.uid)]
 
@@ -208,7 +208,7 @@ def get_faulttolerance(cloudname="default"):
     '''
     if cloudname == "default":
         cloudname = "iaas"
-    return [s for s in Service.query.filter_by(type="faulttolerance",
+    return [s for s in Service.query.filter_by(type = "faulttolerance",
                                                cloud = cloudname,
                                                user_id = g.user.uid)]
 
