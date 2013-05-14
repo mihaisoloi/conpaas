@@ -126,20 +126,29 @@ def start(servicetype, cloudname="default"):
     if not appid:
         appid = get_default_app(g.user.uid).aid
 
-    log('User %s creating a new %s service inside application %s' % (
-	    g.user.username, servicetype, appid))
+    log('User %s attempting creation of new %s service inside application %s'
+        % (g.user.username, servicetype, appid))
 
-    # Check if we got a valid service type
-    if servicetype not in valid_services:
-        error_msg = 'Unknown service type: %s' % servicetype
+
+    def return_error(msg):
         log(error_msg)
         return build_response(jsonify({ 'error': True,
                                         'msg': error_msg }))
 
+
+    # Check if we got a valid service type
+    if servicetype not in valid_services:
+        return_error('Unknown service type: %s' % servicetype)
+
+    ft = get_faulttolerance(cloudname)
+    #check to see if there already is a ft service that runs on the cloud
+    if servicetype == 'faulttolerance' and ft:
+        return_error('FaultTolerance already running on cloud %s at %s'
+                     % (ft[0].cloud, ft[0].manager))
+
     app = get_app(g.user.uid, appid)
     if not app:
-        return build_response(jsonify({ 'error': True,
-		                        'msg': "Application not found" }))
+        return_error("Application not found" )
 
     # Do we have to assign a VPN subnet to this service?
     vpn = app.get_available_vpn_subnet()
@@ -170,25 +179,38 @@ def start(servicetype, cloudname="default"):
 
     db.session.commit()
 
-    ft = get_faulttolerance(cloudname)
-    if ft and len(ft) == 1: #only one ft manager per cloud
+    if ft: #only one ft manager per cloud
        check_response(jsonrpc_post(ft[0].manager, 5555, '/', 'register',
                                    params = {'datasources':
-                                   __all_services_to_datasource(cloudname)}))
+                                   __all_services_to_datasources(cloudname)}))
 
     log('%s (id=%s) created properly' % (s.name, s.sid))
     return build_response(jsonify(s.to_dict()))
 
 
-def __all_services_to_datasource(cloudname):
+def __all_services_to_datasources(cloudname):
     '''
         Ganglia metad needs all the services to watch so we have to
         pass again all of the services each time we register a new one
     '''
     from conpaas.core.ganglia import Datasource
+    if cloudname == "default":
+        cloudname = "iaas"
     return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid), s.manager)
-            for s in g.user.services.all() if (s.cloud == cloudname and
-                                               s.type != 'faulttolerance')]
+            for s in Service.query.filter_by(type!="faulttolerance",
+                                             cloud = cloudname,
+                                             user_id = g.user.uid)]
+
+
+def get_faulttolerance(cloudname="default"):
+    '''
+       Gets the details of the faulttolerance service on the specific cloud
+    '''
+    if cloudname == "default":
+        cloudname = "iaas"
+    return [s for s in Service.query.filter_by(type="faulttolerance",
+                                               cloud = cloudname,
+                                               user_id = g.user.uid)]
 
 
 @service_page.route("/rename/<int:serviceid>", methods=['POST'])
@@ -241,16 +263,6 @@ def stop(serviceid):
     # If a service with id 'serviceid' exists and user is the owner
     service.stop()
     return build_response(simplejson.dumps(True))
-
-
-def get_faulttolerance(cloudname="default"):
-    '''
-       Gets the details of the faulttolerance service on the specific cloud
-    '''
-    if cloudname == "default":
-        cloudname = "iaas"
-    return [ser for ser in Service.query.filter_by(type="faulttolerance",
-                                                   cloud = cloudname)]
 
 
 @service_page.route("/list", methods=['POST', 'GET'])
