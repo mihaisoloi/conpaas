@@ -196,7 +196,8 @@ def __all_services_to_datasources(cloudname):
     from conpaas.core.ganglia import Datasource
     if cloudname == "default":
         cloudname = "iaas"
-    return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid), s.manager)
+    return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid),
+                       s.manager).to_dict()
             for s in Service.query.filter_by(cloud = cloudname,
                                              user_id = g.user.uid)
             if s.type != "faulttolerance"]

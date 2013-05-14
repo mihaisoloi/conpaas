@@ -219,3 +219,6 @@ class Datasource(object):
     def __init__(self, clusterName, hostName):
         self.clusterName = clusterName
         self.hostName = hostName
+
+    def to_dict(self):
+        return {'clusterName' : self.clusterName, 'hostName' : self.hostName}
