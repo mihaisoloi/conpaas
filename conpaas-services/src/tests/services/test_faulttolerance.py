@@ -1,7 +1,8 @@
 import pytest
-from mock import Mock
 from conpaas.services.faulttolerance.manager import FaultToleranceManager
-from tests import conftest
+from tests.conftest import controller, config_parser, simple_config
+from conpaas.core.controller import Controller
+from mockito import when
 
 
 @pytest.fixture(scope='module')
@@ -9,22 +10,22 @@ def manager(cloud):
     ''' Params needed for initialisation of the manager '''
     if (cloud.get_cloud_type() == 'dummy'):
         return None
-    mockedController = conftest.controller(cloud)
+    #mocking controller for the manager
+    mockedController = controller(cloud)
 
     #configuring the parser for the init of the manager
-    config_parser = conftest.config_parser(cloud.get_cloud_type())
-    conftest.simple_config(config_parser)
+    config = config_parser(cloud.get_cloud_type())
+    simple_config(config)
 
-    ftm = FaultToleranceManager(config_parser)
+    when(Controller).generate_context().thenReturn(True)
+    ftm = FaultToleranceManager(config)
     #we don't need timer for testing
     ftm.controller._Controller__reservation_map['manager'].stop()
-    mockedManager = Mock(spec=ftm)
-    mockedManager.controller = mockedController
 
-    return mockedManager
+    return ftm
 
 
 def test_start_service(manager):
     '''Start fault tolerance service'''
     if manager is not None:
-        assert manager.startup()
+        assert manager.startup({'cloud':'ec2'})

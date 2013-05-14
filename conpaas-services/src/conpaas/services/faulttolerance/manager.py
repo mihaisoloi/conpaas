@@ -20,7 +20,7 @@ class FaultToleranceManager(XtreemFSManager):
 
         self.logger.debug("Entering FaultToleranceManager initialization")
         #we are using the same contextualization as xtreemfs
-        #self.controller.generate_context('xtreemfs')
+        self.controller.generate_context('xtreemfs')
         #we need minimum configuration for ft
         self.controller.config_clouds({ "mem" : "512", "cpu" : "1" })
         self._init_values()
@@ -30,7 +30,7 @@ class FaultToleranceManager(XtreemFSManager):
     @expose('POST')
     def startup(self, kwargs):
         self.logger.info('FaultToleranceManager starting up')
-        return XtreemFSManager.startup(kwargs)
+        return super(FaultToleranceManager, self).startup(kwargs)
 
     @expose('POST')
     def register(self, services):
