@@ -1,5 +1,5 @@
 from conpaas.core.expose import expose
-from conpaas.core.ganglia import FaultToleranceGanglia, Datasource
+from conpaas.core.ganglia import FaultToleranceGanglia
 from conpaas.core.manager import BaseManager
 from conpaas.services.xtreemfs.manager.manager import XtreemFSManager
 
@@ -33,18 +33,11 @@ class FaultToleranceManager(XtreemFSManager):
         return super(FaultToleranceManager, self).startup(kwargs)
 
     @expose('POST')
-    def register(self, services):
+    def register(self, datasources):
         '''
             Registering services to the faulttolerance service
 
-            @param services: all the services that must be registered
-            @type services: L{conpaas.core.node.ServiceNode}
+            @param services: datasources for ganglia
+            @type services: L{conpaas.core.ganglia.Datasource}
         '''
-
-        datasources = []
-        for service in services:
-            datasources.append(Datasource('%s-u%s-s%s' % (service.type,
-                                                          service.user_id,
-                                                          service.sid),
-                               service.ip))
         self.ganglia.add_datasources(datasources)

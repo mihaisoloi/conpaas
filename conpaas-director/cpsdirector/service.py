@@ -31,6 +31,7 @@ from cpsdirector import common
 
 from conpaas.core.services import manager_services
 from conpaas.core.https.client import jsonrpc_post
+from conpaas.core.ganglia import Datasource
 
 service_page = Blueprint('service_page', __name__)
 
@@ -155,13 +156,6 @@ def start(servicetype, cloudname="default"):
     try:
         s.manager, s.vmid, s.cloud = manager_controller.start(
             servicetype, s.sid, g.user.uid, cloudname, appid, vpn)
-
-        ft = get_faulttolerance(cloudname)
-        if ft and len(ft) == 1: #only one ft manager per cloud
-            #TODO: register the service if it's not a FT service(only one per cloud)
-            # has to make a request for registering via https
-            jsonrpc_post(ft[0].manager, 5555, '/', 'register',
-                         params = {'services': [s]})
     except Exception, err:
         try:
             db.session.delete(s)
@@ -177,8 +171,24 @@ def start(servicetype, cloudname="default"):
 
     db.session.commit()
 
+    ft = get_faulttolerance(cloudname)
+    if ft and len(ft) == 1: #only one ft manager per cloud
+        jsonrpc_post(ft[0].manager, 5555, '/', 'register',
+                     params = {'datasources':
+                               __all_services_to_datasource(cloudname)})
+
     log('%s (id=%s) created properly' % (s.name, s.sid))
     return build_response(jsonify(s.to_dict()))
+
+
+def __all_services_to_datasource(cloudname):
+    '''
+        Ganglia metad needs all the services to watch so we have to
+        pass again all of the services each time we register a new one
+    '''
+    return [Datasource('%s-u%s-s%s' % (s.type, s.user_id, s.sid), s.manager)
+            for s in g.user.services.all() if s.cloud == cloudname]
+
 
 @service_page.route("/rename/<int:serviceid>", methods=['POST'])
 @cert_required(role='user')
