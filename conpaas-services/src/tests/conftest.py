@@ -9,12 +9,13 @@ from mock import Mock
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 from conpaas.core.controller import Controller
-from conpaas.core.ganglia import BaseGanglia
+from os.path import expanduser
 
 
 cloud_names = ["dummy", "ec2", "opennebula"]
 #TODO: cloud_name should be actual name
 cloud_name = 'iaas'
+PROJECT_HOME = expanduser('~')+'/workspace/conpaas/'
 
 
 def __generate_nodes(interval=[]):
@@ -61,6 +62,7 @@ def controller(cloud):
 
 def config_parser(name):
     iaas_config = ConfigParser()
+
     def __check_params(params):
         for field in params:
             assert iaas_config.has_option(cloud_name, field)
@@ -68,21 +70,22 @@ def config_parser(name):
 
     if name == cloud_names[0]:
         iaas_config.add_section('iaas')
-        iaas_config.set('iaas','DRIVER', 'DUMMY')
+        iaas_config.set('iaas', 'DRIVER', 'DUMMY')
     elif name == cloud_names[1]:
         ec2_params = ['USER', 'PASSWORD',
                       'IMAGE_ID', 'SIZE_ID',
                       'SECURITY_GROUP_NAME',
                       'KEY_NAME', 'REGION']
-        iaas_config.read("conpaas-services/config/cloud/ec2.cfg.example")
+        iaas_config.read(PROJECT_HOME +
+                         "conpaas-services/config/cloud/ec2.cfg.example")
         __check_params(ec2_params)
     elif name == cloud_names[2]:
         nebula_params = ['URL', 'USER', 'PASSWORD', 'IMAGE_ID',
                          'INST_TYPE', 'NET_ID', 'NET_GATEWAY',
                          'NET_NAMESERVER', 'OS_ARCH', 'OS_ROOT',
                          'DISK_TARGET', 'CONTEXT_TARGET']
-        iaas_config.read(
-            "conpaas-services/config/cloud/opennebula.cfg.example")
+        iaas_config.read(PROJECT_HOME +
+                         "conpaas-services/config/cloud/opennebula.cfg.example")
         __check_params(nebula_params)
     return iaas_config
 
@@ -101,7 +104,7 @@ def simple_config(config_parser):
                       'https://localhost:5555/ca')
     config_parser.set('manager', 'APP_ID', '1')
     config_parser.set('manager', 'LOG_FILE', '~/manager.log')
-    config_parser.set('manager', 'CONPAAS_HOME', '~')
+    config_parser.set('manager', 'CONPAAS_HOME', 'conpaas-services')
 
 
 @pytest.fixture(scope="module", params=cloud_names)
@@ -137,13 +140,3 @@ def cloud(request, mocked_driver):
         mocked_driver.create_node.side_effect = __generate_nodes([3, 5])
         nebula.driver = mocked_driver
         return nebula
-
-@pytest.fixture(scope="module")
-def ganglia():
-    ''' Instantiating the ganglia module for testing the template '''
-    base = BaseGanglia('testing_cluster')
-    ganglia = Mock(spec = base)
-    ganglia.cps_home = 'conpaas-services/'
-    return ganglia
-
-

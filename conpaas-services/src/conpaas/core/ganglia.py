@@ -45,9 +45,9 @@ class BaseGanglia(object):
     """Basic Ganglia configuration and startup. Valid for both managers and
     agents. Not to be used directly!"""
 
-    GANGLIA_ETC   = '/etc/ganglia'
+    GANGLIA_ETC = '/etc/ganglia'
     GANGLIA_CONFD = os.path.join(GANGLIA_ETC, 'conf.d')
-    GMOND_CONF    = os.path.join(GANGLIA_ETC, 'gmond.conf')
+    GMOND_CONF = os.path.join(GANGLIA_ETC, 'gmond.conf')
     GANGLIA_MODULES_DIR = '/usr/lib/ganglia/python_modules/'
 
     def __init__(self, service_cluster):
@@ -70,19 +70,19 @@ class BaseGanglia(object):
 
         # Copy modpython.conf
         src = os.path.join(self.cps_home, 'contrib', 'ganglia_modules',
-            'modpython.conf')
+                           'modpython.conf')
         copy(src, self.GANGLIA_CONFD)
 
-        self.configure_monitor()
+        self._mond_config()
 
-    def configure_monitor(self):
+    def _mond_config(self):
         ''' Write gmond.conf '''
         values = {
             'clusterName': self.cluster_name, 'setuid': self.setuid,
             'hostdmax': self.host_dmax, 'managerIp': self.manager_ip
         }
         src = open(os.path.join(self.cps_home, 'config', 'ganglia',
-            'ganglia-gmond.tmpl')).read()
+                                'ganglia-gmond.tmpl')).read()
         open(self.GMOND_CONF, 'w').write(str(Template(src, values)))
 
     def add_modules(self, modules):
@@ -90,13 +90,13 @@ class BaseGanglia(object):
         for module in modules:
             # Copy conf files into ganglia conf.d
             filename = os.path.join(self.cps_home, 'contrib',
-                'ganglia_modules', module + '.pyconf')
+                                    'ganglia_modules', module + '.pyconf')
 
             copy(filename, os.path.join(self.GANGLIA_CONFD, module + '.conf'))
 
             # Copy python modules
             filename = os.path.join(self.cps_home, 'contrib',
-                'ganglia_modules', module + '.py')
+                                    'ganglia_modules', module + '.py')
             copy(filename, self.GANGLIA_MODULES_DIR)
 
         # Restart ganglia-monitor
@@ -120,14 +120,14 @@ class ManagerGanglia(BaseGanglia):
         self.manager_ip = '127.0.0.1'
         self.cps_home = config_parser.get('manager', 'CONPAAS_HOME')
 
-    def _meta_config(self, values):
-        """ Configure ganglia gmetad.conf 
-            @param values: ganglia metad config parameters
-            @type  D{string:string}
-        """
+    def _metad_config(self, gridName=None, clusterName=None,
+                      datasources=None):
+        """ Configure ganglia gmetad.conf """
         src = open(os.path.join(self.cps_home, 'config', 'ganglia',
-            'ganglia-gmetad.tmpl')).read()
-        tmpl = Template(src, values)
+                   'ganglia-gmetad.tmpl')).read()
+        tmpl = Template(src, {'gridName': gridName,
+                              'clusterName': clusterName,
+                              'datasources': datasources})
 
         open(self.GMETAD_CONF, 'w').write(str(tmpl))
 
@@ -135,24 +135,26 @@ class ManagerGanglia(BaseGanglia):
         """ Frontend configuration"""
         if not os.path.isdir('/var/www'):
             os.mkdir('/var/www')
-        run_cmd('cp -a /root/ConPaaS/contrib/ganglia_frontend/ganglia /var/www')
+        run_cmd('cp -a \
+                 /root/ConPaaS/contrib/ganglia_frontend/ganglia /var/www')
 
         copy(os.path.join(self.cps_home, 'contrib', 'ganglia_modules',
-            'nginx-manager.conf'), '/var/cache/cpsagent')
+             'nginx-manager.conf'), '/var/cache/cpsagent')
 
         copy('/etc/nginx/fastcgi_params', '/var/cache/cpsagent/')
 
         copy(os.path.join(self.cps_home, 'contrib', 'ganglia_modules',
-            'www.conf'), '/etc/php5/fpm/pool.d/')
+             'www.conf'), '/etc/php5/fpm/pool.d/')
 
         copyfile(os.path.join(self.cps_home, 'config', 'ganglia',
-            'ganglia_frontend.tmpl'), '/etc/nginx/nginx.conf')
+                              'ganglia_frontend.tmpl'),
+                 '/etc/nginx/nginx.conf')
 
     def configure(self):
         """Here we also need to configure gmetad and the ganglia frontend"""
         BaseGanglia.configure(self)
 
-        self._meta_config({'clusterName': self.cluster_name})
+        self._metad_config(clusterName=self.cluster_name)
         self._fe_config()
 
     def start(self):
@@ -161,9 +163,9 @@ class ManagerGanglia(BaseGanglia):
         if err:
             return err
 
-        cmds = ( '/etc/init.d/gmetad start',
-                 '/etc/init.d/php5-fpm start',
-                 '/usr/sbin/nginx -c /var/cache/cpsagent/nginx-manager.conf' )
+        cmds = ('/etc/init.d/gmetad start',
+                '/etc/init.d/php5-fpm start',
+                '/usr/sbin/nginx -c /var/cache/cpsagent/nginx-manager.conf')
 
         for cmd in cmds:
             _, err = run_cmd(cmd)
@@ -178,19 +180,20 @@ class AgentGanglia(BaseGanglia):
         BaseGanglia.__init__(self, service_cluster)
 
         self.manager_ip = config_parser.get('agent', 'IP_WHITE_LIST')
-        self.cps_home   = config_parser.get('agent', 'CONPAAS_HOME')
+        self.cps_home = config_parser.get('agent', 'CONPAAS_HOME')
 
 
 class FaultToleranceGanglia(ManagerGanglia):
 
-    def __init__(self, config_parser, service_cluster):
+    def __init__(self, config_parser, service_cluster,
+                 gridName='faulttolerance'):
         ManagerGanglia.__init__(self, config_parser, service_cluster)
+        self.gridName = gridName
 
     def configure(self):
         """Configuring the FT gmetad and the ganglia communication"""
         BaseGanglia.configure(self)
-        self._meta_config({ 'gridName': self.cluster_name,
-                            'clusterName': self.cluster_name})
+        self._metad_config(self.gridName, self.cluster_name)
         self._fe_config()
 
     def add_datasources(self, datasources):
@@ -201,9 +204,7 @@ class FaultToleranceGanglia(ManagerGanglia):
             @param datasources: list of Datasource objects
             @type datasources: L{conpaas.core.ganglia.Datasource}
         """
-        self._meta_config({ 'gridName': self.cluster_name,
-                            'clusterName': self.cluster_name,
-                            'datasources': datasources})
+        self._metad_config(self.gridName, self.cluster_name, datasources)
 
     def restart(self):
         """Upon service addition to the metad file we need to restart gmetad"""
@@ -211,6 +212,7 @@ class FaultToleranceGanglia(ManagerGanglia):
         _, err = run_cmd('/etc/init.d/gmetad restart')
         if err:
             return 'Error restarting gmetad: %s' % err
+
 
 class Datasource(object):
 
