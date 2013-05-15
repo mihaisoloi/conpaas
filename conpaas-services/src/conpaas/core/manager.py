@@ -74,15 +74,15 @@ class BaseManager(object):
                 self.controller._Controller__conpaas_user_id,
                 self.controller._Controller__conpaas_service_id)
 
-        ganglia = ganglia_manager(config_parser, service_cluster)
+        self.ganglia = ganglia_manager(config_parser, service_cluster)
 
         try:
-            ganglia.configure()
+            self.ganglia.configure()
         except Exception, err:
             self.logger.exception('Error configuring Ganglia: %s' % err)
             return
 
-        err = ganglia.start()
+        err = self.ganglia.start()
 
         if err:
             self.logger.exception(err)
