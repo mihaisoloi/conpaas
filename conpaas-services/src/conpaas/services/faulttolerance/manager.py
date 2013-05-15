@@ -3,6 +3,7 @@ from conpaas.core.ganglia import FaultToleranceGanglia
 from conpaas.core.manager import BaseManager
 from conpaas.services.xtreemfs.manager.manager import XtreemFSManager
 from conpaas.core.https.server import HttpJsonResponse
+from json import loads
 
 
 #TODO: register manager to the faulttolerance service
@@ -41,5 +42,5 @@ class FaultToleranceManager(XtreemFSManager):
             @param services: datasources for ganglia
             @type services: L{conpaas.core.ganglia.Datasource}
         '''
-        self.ganglia.add_datasources(datasources)
+        self.ganglia.add_datasources(loads(datasources))
         return HttpJsonResponse()

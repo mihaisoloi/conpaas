@@ -3,6 +3,7 @@ from conpaas.core.ganglia import BaseGanglia, ManagerGanglia, AgentGanglia, \
 from tests.conftest import config_parser, simple_config
 from mockito import when
 from os.path import expanduser
+import json
 
 
 CLUSTER = 'testing-cluster'
@@ -18,9 +19,9 @@ def setup_module(module):
     f.close()
 
 
-def teardown_module(module):
-    from os import remove
-    remove(TEST_CONF_FILE)
+#def teardown_module(module):
+#    from os import remove
+#    remove(TEST_CONF_FILE)
 
 
 class TestManagerGanglia():
@@ -60,7 +61,7 @@ class TestFaultToleranceGanglia():
     def test_metad_config(self):
         datasources = []
         datasource0 = Datasource(CLUSTER, 'test.ganglia.datasource.host0')
-        datasources.append(datasource0)
+        datasources.append(datasource0.to_dict())
         errors = self.ftg._metad_config(gridName='testGrid',
                                         clusterName=CLUSTER,
                                         datasources=datasources)
@@ -70,7 +71,7 @@ class TestFaultToleranceGanglia():
         datasources = []
         datasource1 = Datasource(CLUSTER, 'test.ganglia.datasource.host1')
         datasource2 = Datasource(CLUSTER, 'test.ganglia.datasource.host2')
-        datasources.append(datasource1)
-        datasources.append(datasource2)
+        datasources.append(datasource1.to_dict())
+        datasources.append(datasource2.to_dict())
         errors = self.ftg.add_datasources(datasources)
         assert not errors
