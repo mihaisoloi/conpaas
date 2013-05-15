@@ -3,7 +3,6 @@ from conpaas.core.ganglia import BaseGanglia, ManagerGanglia, AgentGanglia, \
 from tests.conftest import config_parser, simple_config
 from mockito import when
 from os.path import expanduser
-import json
 
 
 CLUSTER = 'testing-cluster'
