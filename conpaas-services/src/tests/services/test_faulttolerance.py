@@ -34,7 +34,7 @@ def test_start_service(manager):
         assert manager.startup({'cloud':'ec2'})
 
 
-def tests_register(manager):
+def test_register(manager):
     if manager is not None:
         when(FaultToleranceGanglia).add_datasources().thenReturn(True)
         kwargs = {'datasources': [

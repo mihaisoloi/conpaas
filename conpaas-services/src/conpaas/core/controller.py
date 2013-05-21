@@ -495,13 +495,20 @@ class Controller(object):
         # Get agent config file - add to the default one the one specific
         # to the service if it exists
         default_agent_cfg_file = open(agent_cfg_dir + '/default-agent.cfg')
-        agent_cfg = Template(default_agent_cfg_file.read()).safe_substitute(
-            AGENT_TYPE=service_name,
-            MANAGER_IP=manager_ip,
-            CONPAAS_USER_ID=self.__conpaas_user_id,
-            CONPAAS_SERVICE_ID=self.__conpaas_service_id,
-            CONPAAS_APP_ID=self.__conpaas_app_id,
-            IPOP_BASE_NAMESPACE=self.__ipop_base_namespace)
+
+        def __agent_cfg(service_name):
+            return Template(default_agent_cfg_file.read()).safe_substitute(
+                AGENT_TYPE=service_name,
+                MANAGER_IP=manager_ip,
+                CONPAAS_USER_ID=self.__conpaas_user_id,
+                CONPAAS_SERVICE_ID=self.__conpaas_service_id,
+                CONPAAS_APP_ID=self.__conpaas_app_id,
+                IPOP_BASE_NAMESPACE=self.__ipop_base_namespace)
+
+        if service_name == 'web':
+            agent_cfg = __agent_cfg(self.config_parser.get('manager', 'TYPE'))
+        else:
+            agent_cfg = __agent_cfg(service_name)
 
         # Add IPOP_BASE_IP, IPOP_NETMASK and IPOP_IP_ADDRESS if necessary
         if self.__ipop_base_ip and self.__ipop_netmask:

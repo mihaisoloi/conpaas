@@ -94,6 +94,7 @@ def simple_config(config_parser):
     ''' adding manager section for Controller '''
     config_parser.add_section('manager')
     config_parser.set('manager', 'TYPE', 'helloworld')
+    config_parser.set('manager', 'MY_IP', '127.0.0.1')
     config_parser.set('manager', 'SERVICE_ID', '1')
     config_parser.set('manager', 'USER_ID', '123')
     config_parser.set('manager', 'CREDIT_URL',
