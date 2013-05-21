@@ -324,6 +324,7 @@ class MySQLAgent(BaseAgent):
           master_log_pos = ret[position]['position']
           mysqldump_path = ret[position]['mysqldump_path']
       try: 
+          self.ganglia.add_master(kwargs.pop('masterIp'))
           kwargs = self._slave_get_params(kwargs)
 	  for key in kwargs:
                # TODO: Why do I receive the slave_ip in unicode??  

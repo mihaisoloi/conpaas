@@ -142,6 +142,7 @@ class MySQLManager(BaseManager):
             try:
                 client.create_master(serviceNode.ip, self.config.AGENT_PORT,
                                     self._get_server_id())
+                self.ganglia.add_master(serviceNode.ip)
             except client.AgentException:
                 self.logger.exception('Failed to start MySQL Master at node %s' % str(serviceNode))
                 self.state = self.S_ERROR

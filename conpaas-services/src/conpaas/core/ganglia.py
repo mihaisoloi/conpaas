@@ -235,6 +235,6 @@ class Datasource(object):
         self.masterIp = masterIp
 
     def to_dict(self):
-        return {'clusterName' : self.clusterName,
-                'hostName' : self.hostName,
-                'masterIp' : self.masterIp}
+        return {'clusterName': self.clusterName,
+                'hostName': self.hostName,
+                'masterIp': self.masterIp}

@@ -94,7 +94,7 @@ def create_master(host, port, master_server_id):
 '''
 def create_slave(host, port, slaves):
     method = 'create_slave'
-    params = {'slaves': slaves}
+    params = {'masterIp': host, 'slaves': slaves}
     return _check(https.client.jsonrpc_post(host, port, '/', method, params=params))
 
 def configure_user(host, port, username, password):
