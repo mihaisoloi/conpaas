@@ -18,9 +18,9 @@ def setup_module(module):
     f.close()
 
 
-#def teardown_module(module):
-#    from os import remove
-#    remove(TEST_CONF_FILE)
+def teardown_module(module):
+    from os import remove
+    remove(TEST_CONF_FILE)
 
 
 class TestManagerGanglia():
@@ -43,10 +43,14 @@ class TestAgentGanglia():
         CONFIG.set('agent', 'CONPAAS_HOME', CONFIG.get('manager',
                                                        'CONPAAS_HOME'))
         cls.ag = AgentGanglia(CONFIG, CLUSTER)
+        cls.ag.GMOND_CONF = TEST_CONF_FILE
 
     def test_gmond_conf(self):
-        self.ag.GMOND_CONF = TEST_CONF_FILE
         errors = self.ag._mond_config()
+        assert not errors
+
+    def test_add_master(self):
+        errors = self.ag.add_master('test.ganglia.agent.master')
         assert not errors
 
 
@@ -68,7 +72,8 @@ class TestFaultToleranceGanglia():
 
     def test_add_datasources(self):
         datasources = []
-        datasource1 = Datasource(CLUSTER, 'test.ganglia.datasource.host1')
+        datasource1 = Datasource(CLUSTER, 'test.ganglia.datasource.host1',
+                                          'test.ganglia.datasource.master1')
         datasource2 = Datasource(CLUSTER, 'test.ganglia.datasource.host2')
         datasources.append(datasource1.to_dict())
         datasources.append(datasource2.to_dict())

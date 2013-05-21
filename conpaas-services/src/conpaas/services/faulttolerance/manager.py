@@ -38,8 +38,8 @@ class FaultToleranceManager(XtreemFSManager):
         '''
             Registering services to the faulttolerance service
 
-            @param services: datasources for ganglia
-            @type services: L{conpaas.core.ganglia.Datasource}
+            @param kwargs: json dict containting a list datasources for ganglia
+            @type kwargs: D{'datasources': L{conpaas.core.ganglia.Datasource}}
         '''
         self.ganglia.add_datasources(kwargs['datasources'])
         self.ganglia.restart()

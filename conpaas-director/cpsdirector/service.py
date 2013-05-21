@@ -137,7 +137,7 @@ def start(servicetype, cloudname="default"):
         % (g.user.username, servicetype, appid))
 
 
-    def return_error(msg):
+    def error(msg):
         log(msg)
         return build_response(jsonify({ 'error': True,
                                         'msg': msg }))
@@ -145,17 +145,17 @@ def start(servicetype, cloudname="default"):
 
     # Check if we got a valid service type
     if servicetype not in valid_services:
-        return_error('Unknown service type: %s' % servicetype)
+        return error('Unknown service type: %s' % servicetype)
 
     ft = get_faulttolerance(cloudname)
     #check to see if there already is a ft service that runs on the cloud
     if servicetype == 'faulttolerance' and ft:
-        return_error('FaultTolerance already running on cloud %s at %s'
+        return error('FaultTolerance already running on cloud %s at %s'
                      % (ft[0].cloud, ft[0].manager))
 
     app = get_app(g.user.uid, appid)
     if not app:
-        return_error("Application not found" )
+        return error("Application not found")
 
     # Do we have to assign a VPN subnet to this service?
     vpn = app.get_available_vpn_subnet()
@@ -180,9 +180,7 @@ def start(servicetype, cloudname="default"):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
         log(''.join('!! ' + line for line in lines))
-        error_msg = 'Error upon service creation: %s %s' % (type(err), err)
-        log(error_msg)
-        return build_response(jsonify({ 'error': True, 'msg': error_msg }))
+        return error('Error upon service creation: %s %s' % (type(err), err))
 
     db.session.commit()
 

@@ -40,7 +40,11 @@ data_source "$clusterName" localhost
 
 #if $datasources
 #for $datasource in $datasources
+#if $datasource.masterIp
+data_source "$datasource.clusterName" $datasource.hostName $datasource.masterIp
+#else
 data_source "$datasource.clusterName" $datasource.hostName
+#end if
 #end for
 #end if
 

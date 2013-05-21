@@ -58,6 +58,7 @@ class BaseGanglia(object):
 
         # Set by subclasses
         self.manager_ip = None
+        self.masterIp = None
         self.cps_home = None
 
     def configure(self):
@@ -79,11 +80,17 @@ class BaseGanglia(object):
         ''' Write gmond.conf '''
         values = {
             'clusterName': self.cluster_name, 'setuid': self.setuid,
-            'hostdmax': self.host_dmax, 'managerIp': self.manager_ip
+            'hostdmax': self.host_dmax, 'managerIp': self.manager_ip,
+            'masterIp': self.masterIp
         }
         src = open(os.path.join(self.cps_home, 'config', 'ganglia',
                                 'ganglia-gmond.tmpl')).read()
         open(self.GMOND_CONF, 'w').write(str(Template(src, values)))
+
+    def add_master(self, masterIp):
+        self.masterIp = masterIp
+        self._mond_config()
+        self.restart()
 
     def add_modules(self, modules):
         """Install additional modules and restart ganglia-monitor"""
@@ -99,14 +106,20 @@ class BaseGanglia(object):
                                     'ganglia_modules', module + '.py')
             copy(filename, self.GANGLIA_MODULES_DIR)
 
-        # Restart ganglia-monitor
-        run_cmd('/etc/init.d/ganglia-monitor restart')
+        self.restart()
 
     def start(self):
         """Services startup"""
         _, err = run_cmd('/etc/init.d/ganglia-monitor start')
         if err:
             return 'Error starting ganglia-monitor: %s' % err
+
+    def restart(self):
+        """Upon service addition to the mond file we need to restart gmond"""
+
+        _, err = run_cmd('/etc/init.d/ganglia-monitor restart')
+        if err:
+            return 'Error restarting gmond: %s' % err
 
 
 class ManagerGanglia(BaseGanglia):
@@ -117,7 +130,7 @@ class ManagerGanglia(BaseGanglia):
         """Same as for the base case, but with localhost as manager_ip"""
         BaseGanglia.__init__(self, service_cluster)
 
-        self.manager_ip = '127.0.0.1'
+        self.manager_ip = config_parser.get('manager', 'MY_IP')
         self.cps_home = config_parser.get('manager', 'CONPAAS_HOME')
 
     def _metad_config(self, gridName=None, clusterName=None,
@@ -216,9 +229,12 @@ class FaultToleranceGanglia(ManagerGanglia):
 
 class Datasource(object):
 
-    def __init__(self, clusterName, hostName):
+    def __init__(self, clusterName, hostName, masterIp=None):
         self.clusterName = clusterName
         self.hostName = hostName
+        self.masterIp = masterIp
 
     def to_dict(self):
-        return {'clusterName' : self.clusterName, 'hostName' : self.hostName}
+        return {'clusterName' : self.clusterName,
+                'hostName' : self.hostName,
+                'masterIp' : self.masterIp}
