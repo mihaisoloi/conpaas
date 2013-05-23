@@ -230,11 +230,11 @@ class FaultToleranceGanglia(ManagerGanglia):
 class Datasource(object):
 
     def __init__(self, clusterName, hostName, masterIp=None):
-        self.clusterName = clusterName
-        self.hostName = hostName
-        self.masterIp = masterIp
+        self.name = clusterName
+        self.manager = hostName
+        self.master = masterIp
 
     def to_dict(self):
-        return {'clusterName': self.clusterName,
-                'hostName': self.hostName,
-                'masterIp': self.masterIp}
+        return {'clusterName': self.name,
+                'hostName': self.manager,
+                'masterIp': self.master}
