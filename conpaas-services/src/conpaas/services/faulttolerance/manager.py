@@ -84,14 +84,22 @@ class Service(Datasource):
         self.ganglia = Ganglia(manager)
         self.ganglia.connect()
         self.agents = []
+        self.needsUpdate = False
 
-    def start_checking_master(self, ganglia_client):
+    def start_checking_master(self):
         '''
             Checks service for master to add as backup datasource
         '''
-        hosts = ganglia_client.getCluster().getHosts()
-        if len(hosts) == 2:
-            self.register()
+        from threading import Thread
+        def check_master():
+            while self.master is None:
+                hosts = self.ganglia.getCluster().getHosts()
+                if len(hosts) == 2:
+                    self.needsUpdate = True
+                    self.master = hosts[2]
+
+        if self.master is None:
+            Thread(target=check_master).start()
 
     @staticmethod
     def from_dict(datasource):
