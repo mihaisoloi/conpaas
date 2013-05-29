@@ -3,7 +3,7 @@ from conpaas.services.faulttolerance.manager import FaultToleranceManager, \
                                                     Service
 from tests.conftest import controller, config_parser, simple_config
 from conpaas.core.controller import Controller
-from mockito import when, unstub
+from mockito import when
 from conpaas.core.https.server import HttpJsonResponse
 from conpaas.core.ganglia import Datasource, FaultToleranceGanglia
 from conpaas.services.faulttolerance.gmon.ganglia import Ganglia

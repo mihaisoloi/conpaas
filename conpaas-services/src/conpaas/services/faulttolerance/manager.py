@@ -53,6 +53,8 @@ class FaultToleranceManager(XtreemFSManager):
             Deciding if a service was removed, or added:
             if removed -> interrupt monitoring, and clean it's history
             if added -> watch for master creation
+
+            @return D{0: L[removed], 1: L[added]}
         '''
         names = lambda y: [x.name for x in y]
         func = lambda x,y: [s for s in x if s.name not in names(y)]
@@ -72,6 +74,12 @@ class FaultToleranceManager(XtreemFSManager):
     def datasource_to_service(self, datasources):
         return [Service.from_dict(datasource)
                 for datasource in datasources]
+
+    #TODO: restart manager, order service to restart agents, replicate data
+
+    def communication(self):
+        #TODO: communication between clusters for FT managers
+        pass
 
 
 class Service(Datasource):
@@ -100,6 +108,24 @@ class Service(Datasource):
 
         if self.master is None:
             Thread(target=check_master).start()
+
+    def monitor_agents(self):
+        '''
+            Monitors agents to make sure they are properly stop/started
+            Updates the agents list, using ganglia.
+        '''
+        pass
+
+    def manager_communication(self):
+        '''
+            Talks to manager for checking and ordering things around
+
+            list_nodes and if node not in list and failed it means that it was
+            stopped, if node in list and failed we need to take action
+        '''
+        from threading import Thread
+
+        pass
 
     @staticmethod
     def from_dict(datasource):
