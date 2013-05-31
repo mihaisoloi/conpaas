@@ -5,7 +5,7 @@ from conpaas.services.xtreemfs.manager.manager import XtreemFSManager
 from conpaas.core.https.server import HttpJsonResponse
 from gmon.ganglia import Ganglia
 
-
+#TODO: if manager fails restart gmond on all nodes
 class FaultToleranceManager(XtreemFSManager):
 
     def __init__(self, config_parser, **kwargs):
@@ -69,7 +69,7 @@ class FaultToleranceManager(XtreemFSManager):
         self.services.extend(added)
         self.services = func(self.services, removed)
 
-        return {k: v for (k, v) in enumerate([removed, added])}
+        return dict((k, v) for (k, v) in enumerate([removed, added]))
 
     def datasource_to_service(self, datasources):
         return [Service.from_dict(datasource)
