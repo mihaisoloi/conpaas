@@ -4,6 +4,8 @@ from conpaas.core.manager import BaseManager
 from conpaas.services.xtreemfs.manager.manager import XtreemFSManager
 from conpaas.core.https.server import HttpJsonResponse
 from gmon.ganglia import Ganglia
+from time import sleep
+from threading import Thread
 
 
 #TODO: if manager fails restart gmond on all nodes
@@ -44,12 +46,16 @@ class FaultToleranceManager(XtreemFSManager):
             @param kwargs: json dict containting a list datasources for ganglia
             @type kwargs: D{'datasources': L{conpaas.core.ganglia.Datasource}}
         '''
-        datasources = kwargs["datasources"]
-        self.ganglia.add_datasources(datasources)
-        self.ganglia.restart()
+
+        removedServices = self.clasify(
+            self.datasource_to_service(kwargs["datasources"]))[0]
+
+        for service in removedServices:
+            service.shutdown()
+
         return HttpJsonResponse()
 
-    def update(self, serviceUpdate):
+    def classify(self, serviceUpdate):
         '''
             Deciding if a service was removed, or added:
             if removed -> interrupt monitoring, and clean it's history
@@ -73,6 +79,53 @@ class FaultToleranceManager(XtreemFSManager):
         return [Service.from_dict(datasource)
                 for datasource in datasources]
 
+    def update_ganglia(self):
+        self.ganglia.add_datasources(self.services)
+        self.ganglia.restart()
+
+    def check_for_updates(self):
+        '''
+            Verifies if services need to be updated.
+
+            New master added, or failed service node, manager unreachable'
+        '''
+        def check():
+            while self.S_RUNNING:
+                update_ganglia = False
+                for service in self.get_services_to_update():
+                    if self.ganglia.get_datasource_by_cluster_name(service.name)\
+                        .master != service.master: # not the same master or new one
+                        update_ganglia = True
+
+                    if service.failed:
+                        self.failed_node_action(service)
+
+                if update_ganglia:
+                    self.update_ganglia()
+
+                sleep(10)
+
+        Thread(target=check).start()
+
+    def failed_node_action(self, service):
+        for node in service.failed:
+            if node is service.manager:
+                # restart manager and assign it's nodes to the new one
+                pass
+            elif node is service.master:
+                # for mysql it holds the process agent for server
+                # need more than simple node restart
+                service.restart(node)
+                service.update_all_mond_agents()
+            else:
+                service.restart(node)
+
+    def get_services_to_update(self):
+        '''
+            returns services that have to be updated, or ft action is needed
+        '''
+        return [service for service in self.services if service.needsUpdate]
+
     #TODO: restart manager, order service to restart agents, replicate data
 
     def communication(self):
@@ -80,10 +133,8 @@ class FaultToleranceManager(XtreemFSManager):
         pass
 
 
-from time import sleep
-from threading import Thread
 from conpaas.core.https.client import conpaas_init_ssl_ctx, jsonrpc_get,\
-    check_response
+    jsonrpc_post, check_response
 
 
 # need it now for comunicating with the other managers
@@ -147,12 +198,26 @@ class Service(Datasource):
 
                 for node in self.failed:
                     if node not in manager_nodes:
-                        # it must mean that it was terminated
+                        # it must mean that it was stopped by manager
                         self.failed.pop(node)
+
+                if not self.needsUpdate and self.failed:
+                    self.needsUpdate = True
 
                 sleep(30)    # checking every 30 seconds
 
         Thread(target=check_agents).start()
+
+    def restart_node(self):
+        '''
+            Orders the manager of the service to restart the failed node.
+            Removes the node from the watched agents.
+            Deploys the node on the same cloud.
+        '''
+        #TODO: check to see on which cloud, and either restart yourself or 
+        # talk to the coresponding FT manager for restart
+        check_response(jsonrpc_post(self.manager, 443, '/', 'add_nodes',
+                                    {'slaves':'1','cloud':'default'}))
 
     def shutdown(self):
         self.terminate = True

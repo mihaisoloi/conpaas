@@ -202,6 +202,7 @@ class FaultToleranceGanglia(ManagerGanglia):
                  gridName='faulttolerance'):
         ManagerGanglia.__init__(self, config_parser, service_cluster)
         self.gridName = gridName
+        self.current_datasources = []
 
     def configure(self):
         """Configuring the FT gmetad and the ganglia communication"""
@@ -217,7 +218,13 @@ class FaultToleranceGanglia(ManagerGanglia):
             @param datasources: list of Datasource objects
             @type datasources: L{conpaas.core.ganglia.Datasource}
         """
+        self.current_datasources = datasources
         self._metad_config(self.gridName, self.cluster_name, datasources)
+
+    def get_datasource_by_cluster_name(self, clusterName):
+        if self.current_datasources:
+            return [datasource for datasource in self.current_datasources
+                    if datasource.name == clusterName]
 
     def restart(self):
         """Upon service addition to the metad file we need to restart gmetad"""

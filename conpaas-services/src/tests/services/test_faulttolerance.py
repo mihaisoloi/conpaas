@@ -46,7 +46,7 @@ class TestManager():
                         'test.ganglia.datasource.host2').to_dict()]}
             assert isinstance(manager.register(kwargs), HttpJsonResponse)
 
-    def test_update(self, manager):
+    def test_classify(self, manager):
         if manager is not None:
             when(Service)._Service__start_checking_master().thenReturn(True)
             when(Service)._Service__start_checking_agents().thenReturn(True)
@@ -57,10 +57,10 @@ class TestManager():
             newService = Service('test4', 'manager4', 'master4')
             test_services.append(newService)
             assert {0: [], 1: [newService]} == \
-                manager.update(test_services) # adding one service
+                manager.classify(test_services) # adding one service
 
             assert {0: test_services[:len(test_services)-1], 1: []} == \
-                manager.update([test_services.pop()]) #removing 3 services
+                manager.classify([test_services.pop()]) #removing 3 services
 
             assert len(manager.services) == 1
 
