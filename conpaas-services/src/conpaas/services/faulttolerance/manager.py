@@ -5,6 +5,7 @@ from conpaas.services.xtreemfs.manager.manager import XtreemFSManager
 from conpaas.core.https.server import HttpJsonResponse
 from gmon.ganglia import Ganglia
 
+
 #TODO: if manager fails restart gmond on all nodes
 class FaultToleranceManager(XtreemFSManager):
 
@@ -57,18 +58,15 @@ class FaultToleranceManager(XtreemFSManager):
             @return D{0: L[removed], 1: L[added]}
         '''
         names = lambda y: [x.name for x in y]
-        func = lambda x,y: [s for s in x if s.name not in names(y)]
+        func = lambda x, y: [s for s in x if s.name not in names(y)]
 
         added = func(serviceUpdate, self.services)
-
-        for newService in added:
-            newService.start_checking_master()
-
         removed = func(self.services, serviceUpdate)
 
         self.services.extend(added)
         self.services = func(self.services, removed)
 
+        #this form is necessary for python 2.6
         return dict((k, v) for (k, v) in enumerate([removed, added]))
 
     def datasource_to_service(self, datasources):
@@ -82,6 +80,19 @@ class FaultToleranceManager(XtreemFSManager):
         pass
 
 
+from time import sleep
+from threading import Thread
+from conpaas.core.https.client import conpaas_init_ssl_ctx, jsonrpc_get,\
+    check_response
+
+
+# need it now for comunicating with the other managers
+try:
+    conpaas_init_ssl_ctx('/etc/cpsmanager/certs', 'director')
+except Exception as e:
+    print e
+
+
 class Service(Datasource):
     '''
         This class is an abstraction of a ConPaaS service.
@@ -92,40 +103,71 @@ class Service(Datasource):
         self.ganglia = Ganglia(manager)
         self.ganglia.connect()
         self.agents = []
+        self.failed = []
         self.needsUpdate = False
+        self.terminate = False
 
-    def start_checking_master(self):
+        self.__start_checking_master()
+        self.__start_checking_agents()
+
+    def __start_checking_master(self):
         '''
             Checks service for master to add as backup datasource
         '''
-        from threading import Thread
         def check_master():
             while self.master is None:
                 hosts = self.ganglia.getCluster().getHosts()
                 if len(hosts) == 2:
                     self.needsUpdate = True
-                    self.master = hosts[2]
+                    self.master = [host.ip for host in hosts
+                                   if host.ip != self.manager][0]
+                    sleep(10)    # checking every 10 seconds
 
         if self.master is None:
             Thread(target=check_master).start()
 
-    def monitor_agents(self):
+    def __start_checking_agents(self):
         '''
             Monitors agents to make sure they are properly stop/started
             Updates the agents list, using ganglia.
-        '''
-        pass
 
-    def manager_communication(self):
+            The manager and master qualify as agents as well
+
+            TODO: maybe should interact with manager to check for downed nodes
+        '''
+        def check_agents():
+            while not self.terminate:
+                hosts = self.ganglia.getCluster().getHosts()
+                manager_nodes = self.get_manager_node_list()
+
+                new_agents = [host.ip for host in hosts]
+                self.failed = [node for node in self.agents
+                               if node not in new_agents]
+                self.agents = new_agents
+
+                for node in self.failed:
+                    if node not in manager_nodes:
+                        # it must mean that it was terminated
+                        self.failed.pop(node)
+
+                sleep(30)    # checking every 30 seconds
+
+        Thread(target=check_agents).start()
+
+    def shutdown(self):
+        self.terminate = True
+
+    def get_manager_node_list(self):
         '''
             Talks to manager for checking and ordering things around
 
             list_nodes and if node not in list and failed it means that it was
             stopped, if node in list and failed we need to take action
-        '''
-        from threading import Thread
 
-        pass
+            @return L[String] list of ip's registered
+        '''
+        return check_response(jsonrpc_get(self.manager, 443, '/',
+                                          'list_nodes_by_ip'))['nodes']
 
     @staticmethod
     def from_dict(datasource):

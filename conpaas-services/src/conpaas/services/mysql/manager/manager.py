@@ -184,6 +184,20 @@ class MySQLManager(BaseManager):
             })
 
     @expose('GET')
+    def list_nodes_by_ip(self, kwargs):
+        """
+        HTTP GET method.
+
+        :returns: HttpJsonResponse - JSON response with the list node ips
+        :raises: HttpErrorResponse
+
+        """
+        if len(kwargs) != 0:
+            return HttpErrorResponse(ManagerException(E_ARGS_UNEXPECTED, kwargs.keys()).message)
+
+        return HttpJsonResponse({'nodes': self.config.getMySQLIPs()})
+
+    @expose('GET')
     def get_node_info(self, kwargs):
         """
         HTTP GET method. Gets info of a specific node.
