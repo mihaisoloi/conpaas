@@ -131,6 +131,9 @@ class Configuration(object):
     def getMySQLNode(self, id):
         return self.serviceNodes[id]
 
+    def getMySQLNodeByIp(self, ip):
+        return [node for node in self.serviceNodes if node.ip == ip][0]
+
     '''
       Add new Service Node to the server (configuration).
       @param accesspoint: new VM

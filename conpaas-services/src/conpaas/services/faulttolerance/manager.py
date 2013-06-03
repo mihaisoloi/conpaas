@@ -115,10 +115,10 @@ class FaultToleranceManager(XtreemFSManager):
             elif node is service.master:
                 # for mysql it holds the process agent for server
                 # need more than simple node restart
-                service.restart(node)
+                service.restart_node(node)
                 service.update_all_mond_agents()
             else:
-                service.restart(node)
+                service.restart_node(node)
 
     def get_services_to_update(self):
         '''
@@ -208,16 +208,18 @@ class Service(Datasource):
 
         Thread(target=check_agents).start()
 
-    def restart_node(self):
+    def restart_node(self, node):
         '''
             Orders the manager of the service to restart the failed node.
+
+            Sets the manager state to RUNNING
             Removes the node from the watched agents.
             Deploys the node on the same cloud.
         '''
         #TODO: check to see on which cloud, and either restart yourself or 
         # talk to the coresponding FT manager for restart
-        check_response(jsonrpc_post(self.manager, 443, '/', 'add_nodes',
-                                    {'slaves':'1','cloud':'default'}))
+        check_response(jsonrpc_post(self.manager, 443, '/', 'restart_node',
+                                    {'nodeIp': node}))
 
     def shutdown(self):
         self.terminate = True

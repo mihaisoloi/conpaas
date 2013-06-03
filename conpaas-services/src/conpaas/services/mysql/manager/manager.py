@@ -294,6 +294,24 @@ class MySQLManager(BaseManager):
         })
 
     @expose('POST')
+    def restart_node(self, kwargs):
+        '''
+
+            Sets the manager state to RUNNING
+            Removes the node from the watched agents.
+            Deploys the node on the same cloud.
+        '''
+        #TODO: add checks for input
+
+        nodeIp = kwargs['nodeIp']
+
+        node = self.config.getMySQLNodeByIp(nodeIp)
+        self.config.removeMySQLServiceNode(node.id)
+
+        #TODO: for now only starting on one cloud, state is reset by adding
+        Thread(target=self._do_add_nodes, args=[1, 'default']).start()
+
+    @expose('POST')
     def remove_nodes(self, kwargs):
         if self.state != self.S_RUNNING:
             self.logger.debug('Wrong state to remove nodes')
