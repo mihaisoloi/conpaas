@@ -138,10 +138,10 @@ from conpaas.core.https.client import conpaas_init_ssl_ctx, jsonrpc_get,\
 
 
 # need it now for comunicating with the other managers
-try:
-    conpaas_init_ssl_ctx('/etc/cpsmanager/certs', 'director')
-except Exception as e:
-    print e
+#try:
+#    conpaas_init_ssl_ctx('/etc/cpsmanager/certs', 'director')
+#except Exception as e:
+#    print e
 
 
 class Service(Datasource):
@@ -211,10 +211,6 @@ class Service(Datasource):
     def restart_node(self, node):
         '''
             Orders the manager of the service to restart the failed node.
-
-            Sets the manager state to RUNNING
-            Removes the node from the watched agents.
-            Deploys the node on the same cloud.
         '''
         #TODO: check to see on which cloud, and either restart yourself or 
         # talk to the coresponding FT manager for restart
