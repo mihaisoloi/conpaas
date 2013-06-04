@@ -90,7 +90,8 @@ if __name__ == '__main__':
   
   # Initialize the context for the client   
   https.client.conpaas_init_ssl_ctx(config_parser.get('manager', 'CERT_DIR'),
-                                    'manager', config_parser.get('manager', 'USER_ID'),
+                                    'manager',
+                                    config_parser.get('manager', 'USER_ID'),
                                     config_parser.get('manager', 'SERVICE_ID'))
 
   # Start the manager server

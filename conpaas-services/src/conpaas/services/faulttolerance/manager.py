@@ -133,15 +133,7 @@ class FaultToleranceManager(XtreemFSManager):
         pass
 
 
-from conpaas.core.https.client import conpaas_init_ssl_ctx, jsonrpc_get,\
-    jsonrpc_post, check_response
-
-
-# need it now for comunicating with the other managers
-#try:
-#    conpaas_init_ssl_ctx('/etc/cpsmanager/certs', 'director')
-#except Exception as e:
-#    print e
+from conpaas.core.https.client import jsonrpc_get, jsonrpc_post, check_response
 
 
 class Service(Datasource):

@@ -79,7 +79,8 @@ if __name__ == '__main__':
   
   # Initialize the context for the client   
   https.client.conpaas_init_ssl_ctx(config_parser.get('agent', 'CERT_DIR'),
-                                    'agent', config_parser.get('agent', 'USER_ID'),
+                                    'agent',
+                                    config_parser.get('agent', 'USER_ID'),
                                     config_parser.get('agent', 'SERVICE_ID'))
 
   # Start the agent server

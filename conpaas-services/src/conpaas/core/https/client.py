@@ -79,7 +79,6 @@ from httplib import HTTPConnection, OK
 
 from conpaas.core.misc import file_get_contents
 
-import sys
 import json
 
 from . import x509
@@ -253,11 +252,11 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
     if dict['role'] == 'frontend':
         return ok
 
-    if dict['role'] != 'agent' and dict['role'] != 'manager':
-       return False
-
-    if dict['UID'] != __uid or dict['serviceLocator'] != __sid:
-       return False
+    elif dict['role'] == 'agent' or dict['role'] == 'manager':
+        if ((dict['UID'] != __uid or dict['serviceLocator'] != __sid) or
+            (dict.has_key('serviceType') and
+             dict['serviceType'] != 'faulttolerance')):
+                return False
 
     return ok
 
