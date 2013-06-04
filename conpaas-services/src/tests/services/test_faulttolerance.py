@@ -1,6 +1,6 @@
 import pytest
 from conpaas.services.faulttolerance.manager import FaultToleranceManager, \
-                                                    Service
+    Service
 from tests.conftest import controller, config_parser, simple_config
 from conpaas.core.controller import Controller
 from mockito import when, unstub
@@ -36,31 +36,31 @@ class TestManager():
     def test_start_service(self, manager):
         '''Start fault tolerance service'''
         if manager is not None:
-            assert manager.startup({'cloud':'ec2'})
+            assert manager.startup({'cloud': 'ec2'})
 
     def test_register(self, manager):
         if manager is not None:
             when(FaultToleranceGanglia).add_datasources().thenReturn(True)
             kwargs = {'datasources': [
                 Datasource('testing-cluster',
-                        'test.ganglia.datasource.host2').to_dict()]}
+                           'test.ganglia.datasource.host2').to_dict()]}
             assert isinstance(manager.register(kwargs), HttpJsonResponse)
 
     def test_classify(self, manager):
         if manager is not None:
             when(Service)._Service__start_checking_master().thenReturn(True)
             when(Service)._Service__start_checking_agents().thenReturn(True)
-            test_services = [Service('test1','manager1','master1'),
-                            Service('test2','manager2','master2'),
-                            Service('test3','manager3','master3')]
+            test_services = [Service('test1', 'manager1', 'master1'),
+                             Service('test2', 'manager2', 'master2'),
+                             Service('test3', 'manager3', 'master3')]
             manager.services = test_services[:]
             newService = Service('test4', 'manager4', 'master4')
             test_services.append(newService)
             assert {0: [], 1: [newService]} == \
-                manager.classify(test_services) # adding one service
+                manager.classify(test_services)  # adding one service
 
             assert {0: test_services[:len(test_services)-1], 1: []} == \
-                manager.classify([test_services.pop()]) #removing 3 services
+                manager.classify([test_services.pop()])  # removing 3 services
 
             assert len(manager.services) == 1
 
@@ -74,13 +74,19 @@ class TestService():
         cls.manager = '192.168.1.1'
         cls.master = '192.168.1.2'
         cluster_name = 'test_service'
+
         when(Ganglia).connect().thenReturn(True)
+        when(Service).get_manager_state().thenReturn('RUNNING')
+        when(Service).get_manager_node_list().thenReturn([cls.manager,
+                                                          cls.master])
+
         cls.cluster = Cluster(cluster_name, "mihai", 12, "", "")
         cls.cluster.addHost(Host('host_manager', cls.manager, 1, 1, 1))
         when(Ganglia).getCluster().thenReturn(cls.cluster)
+
         cls.service = Service(cluster_name, cls.manager)
 
-    def test_start_service(self):
+    def test_connect(self):
         import time
         assert not self.service.needsUpdate
         self.cluster.addHost(Host('host_master', self.master, 2, 2, 2))

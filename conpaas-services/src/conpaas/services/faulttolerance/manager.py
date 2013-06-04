@@ -50,6 +50,8 @@ class FaultToleranceManager(XtreemFSManager):
         removedServices = self.classify(
             self.datasource_to_service(kwargs["datasources"]))[0]
 
+        self.ganglia.add_datasources(self.services)
+
         for service in removedServices:
             service.shutdown()
 
@@ -92,13 +94,14 @@ class FaultToleranceManager(XtreemFSManager):
         def check():
             while self.S_RUNNING:
                 update_ganglia = False
-                for service in self.get_services_to_update():
-                    if self.ganglia.get_datasource_by_cluster_name(service.name)\
-                        .master != service.master: # not the same master or new one
+                for s in self.get_services_to_update():
+                    ds = self.ganglia.get_datasource_by_cluster_name(s.name)
+                    if ds.master != s.master:
+                        # not the same master or new one
                         update_ganglia = True
 
-                    if service.failed:
-                        self.failed_node_action(service)
+                    if s.failed:
+                        self.failed_node_action(s)
 
                 if update_ganglia:
                     self.update_ganglia()
@@ -144,16 +147,27 @@ class Service(Datasource):
     def __init__(self, name, manager, master=None):
         Datasource.__init__(self, name, manager, master)
         self.ganglia = Ganglia(manager)
-        self.ganglia.connect()
         self.agents = []
         self.failed = []
         self.needsUpdate = False
         self.terminate = False
 
-        self.__start_checking_master()
-        self.__start_checking_agents()
+        self.connect()
 
-    def __start_checking_master(self):
+    def connect(self):
+        '''
+            Checks to see when the deployment is completed so we can connect
+        '''
+        def check_manager_running():
+            while self.get_manager_state() != 'RUNNING':
+                sleep(10)
+            self.ganglia.connect()
+            self.__start_master_monitor()
+            self.__start_agents_monitor()
+
+        Thread(target=check_manager_running).start()
+
+    def __start_master_monitor(self):
         '''
             Checks service for master to add as backup datasource
         '''
@@ -169,7 +183,7 @@ class Service(Datasource):
         if self.master is None:
             Thread(target=check_master).start()
 
-    def __start_checking_agents(self):
+    def __start_agents_monitor(self):
         '''
             Monitors agents to make sure they are properly stop/started
             Updates the agents list, using ganglia.
@@ -204,7 +218,7 @@ class Service(Datasource):
         '''
             Orders the manager of the service to restart the failed node.
         '''
-        #TODO: check to see on which cloud, and either restart yourself or 
+        # TODO: check to see on which cloud, and either restart yourself or
         # talk to the coresponding FT manager for restart
         check_response(jsonrpc_post(self.manager, 443, '/', 'restart_node',
                                     {'nodeIp': node}))
@@ -223,6 +237,10 @@ class Service(Datasource):
         '''
         return check_response(jsonrpc_get(self.manager, 443, '/',
                                           'list_nodes_by_ip'))['nodes']
+
+    def get_manager_state(self):
+        return check_response(jsonrpc_get(self.manager, 443, '/',
+                              'get_service_info'))['state']
 
     @staticmethod
     def from_dict(datasource):
