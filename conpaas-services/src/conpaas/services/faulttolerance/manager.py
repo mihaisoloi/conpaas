@@ -137,6 +137,8 @@ class FaultToleranceManager(XtreemFSManager):
 
 
 from conpaas.core.https.client import jsonrpc_get, jsonrpc_post, check_response
+from socket import error
+from urllib2 import URLError
 
 
 class Service(Datasource):
@@ -158,9 +160,19 @@ class Service(Datasource):
         '''
             Checks to see when the deployment is completed so we can connect
         '''
+        def wait_for_state(self, target_state):
+            """Poll the state of manager till it matches 'state'."""
+            state = ''
+            while state != target_state:
+                try:
+                    state = self.get_manager_state()
+                except (error, URLError):
+                    sleep(2)
+
         def check_manager_running():
-            while self.get_manager_state() != 'RUNNING':
-                sleep(10)
+
+            wait_for_state('INIT')
+
             self.ganglia.connect()
             self.__start_master_monitor()
             self.__start_agents_monitor()
