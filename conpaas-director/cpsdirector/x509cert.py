@@ -45,7 +45,7 @@ def generate_certificate(cert_dir, uid, sid, role, email, cn, org, stype=None,
     attributes = {'userId': uid, 'serviceLocator': sid, 'O': org, 'CN': cn,
                   'emailAddress': email, 'role': role}
     if stype:
-        attributes['serviceType'] = stype
+        attributes['contentType'] = stype
 
     x509_req = x509.create_x509_req(req_key, **attributes)
 

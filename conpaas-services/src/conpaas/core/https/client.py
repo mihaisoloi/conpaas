@@ -254,8 +254,8 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
 
     elif dict['role'] == 'agent' or dict['role'] == 'manager':
         if ((dict['UID'] != __uid or dict['serviceLocator'] != __sid) or
-            (dict.has_key('serviceType') and
-             dict['serviceType'] != 'faulttolerance')):
+            (dict.has_key('contentType') and
+             dict['contentType'] != 'faulttolerance')):
                 return False
 
     return ok

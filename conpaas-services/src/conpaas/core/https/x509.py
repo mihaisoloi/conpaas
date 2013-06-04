@@ -55,9 +55,13 @@ def create_x509_req(pub_key, **name):
     req = crypto.X509Req()
     subj = req.get_subject()
 
-    for key, value in name.items():
+    # Order stable --> order matters!
+    attrs = name.items()
+    attrs.sort(lambda (k1, v1), (k2, v2): cmp(v1, v2))
+
+    for key, value in attrs:
         setattr(subj, key, value)
-    
+
     req.set_pubkey(pub_key)
     req.sign(pub_key, 'sha1')
     return req
@@ -102,7 +106,8 @@ def get_x509_dn_field(cert, field):
 
 if __name__ == '__main__':
     req_key = gen_rsa_keypair()
-    x509_req = create_x509_req(req_key, userId='3', serviceLocator='101',
-                               O='ConPaaS', emailAddress='info@conpaas.eu',
-                               CN='ConPaaS', role='agent')
-    print x509_req_as_pem(x509_req)
+    # the x509Name conventions are taken from the OpenSSL c library
+    assert create_x509_req(req_key, userId='3', serviceLocator='101',
+                           O='ConPaaS', emailAddress='info@conpaas.eu',
+                           CN='ConPaaS', role='agent',
+                           contentType='faulttolerance')
