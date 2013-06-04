@@ -47,7 +47,7 @@ def generate_certificate(cert_dir, uid, sid, role, email, cn, org, stype=None,
     if stype:
         attributes['serviceType'] = stype
 
-    x509_req = x509.create_x509_req(req_key, attributes)
+    x509_req = x509.create_x509_req(req_key, **attributes)
 
     # Sign the request
     certificate = create_x509_cert(cert_dir, x509_req)
