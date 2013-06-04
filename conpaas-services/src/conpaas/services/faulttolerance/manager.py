@@ -160,7 +160,7 @@ class Service(Datasource):
         '''
             Checks to see when the deployment is completed so we can connect
         '''
-        def wait_for_state(self, target_state):
+        def wait_for_state(target_state):
             """Poll the state of manager till it matches 'state'."""
             state = ''
             while state != target_state:

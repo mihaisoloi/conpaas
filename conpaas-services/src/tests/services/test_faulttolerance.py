@@ -76,7 +76,7 @@ class TestService():
         cluster_name = 'test_service'
 
         when(Ganglia).connect().thenReturn(True)
-        when(Service).get_manager_state().thenReturn('RUNNING')
+        when(Service).get_manager_state().thenReturn('INIT')
         when(Service).get_manager_node_list().thenReturn([cls.manager,
                                                           cls.master])
 
