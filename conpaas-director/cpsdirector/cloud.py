@@ -33,10 +33,11 @@ class ManagerController(Controller):
     def _get_certificate(self, email, cn, org):
         user_id = self.config_parser.get("manager", "USER_ID")
         service_id = self.config_parser.get("manager", "SERVICE_ID")
+        service_type = self.config_parser.get("manager", "TYPE")
         cert_dir = self.config_parser.get('conpaas', 'CERT_DIR')
 
-        return generate_certificate(cert_dir, user_id, service_id,
-                                    "manager", email, cn, org)
+        return generate_certificate(cert_dir, user_id, service_id, "manager",
+                                    email, cn, org, service_type)
 
     def _get_context_file(self, service_name, cloud):
         """Override default _get_context_file. Here we generate the context
