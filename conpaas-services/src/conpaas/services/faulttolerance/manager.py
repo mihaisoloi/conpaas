@@ -146,7 +146,7 @@ class Service(Datasource):
         This class is an abstraction of a ConPaaS service.
     '''
 
-    def __init__(self, name, manager, master=None):
+    def __init__(self, name, manager, master=''):
         Datasource.__init__(self, name, manager, master)
         self.ganglia = Ganglia(manager)
         self.agents = []
