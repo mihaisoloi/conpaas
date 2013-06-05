@@ -255,7 +255,7 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
         if key == 'CN':
             if value == 'CA':
                 return ok
-
+    print 'Client'
     print 'Callback Manager Dictionary: %s' % dict
     sys.stdout.flush()
 
@@ -265,8 +265,15 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
     if dict['role'] == 'agent' or dict['role'].startswith('manager'):
         return False
 
+    print 'PASSES ROLE CHECK'
+    sys.stdout.flush()
     if (dict['UID'] != __uid or dict['serviceLocator'] != __sid):
-        if(dict['role'].endswith('faulttolerance')):
+        print 'PASSES UID CHECK'
+        sys.stdout.flush()
+        if(dict['role'].endswith('faulttolerance') or
+           self.config_parser.get('manager', 'TYPE') == 'faulttolerance')):
+            print 'IT RETURNS OK'
+            sys.stdout.flush()
             return ok
         return False
 

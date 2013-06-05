@@ -232,6 +232,7 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
+        print 'Server'
         print 'Callback Manager Dictionary: %s' % dict
         sys.stdout.flush()
 
