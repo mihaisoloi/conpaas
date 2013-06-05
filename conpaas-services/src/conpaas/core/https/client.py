@@ -87,6 +87,7 @@ from conpaas.core.https import x509
 __client_ctx = None
 __uid = None
 __sid = None
+__role = None
 
 def conpaas_init_ssl_ctx(dir, role, uid=None, sid=None):
     cert_file = dir + '/cert.pem'
@@ -111,6 +112,9 @@ def conpaas_init_ssl_ctx(dir, role, uid=None, sid=None):
                         ca_cert_file, verify_callback)
     __uid = uid
     __sid = sid
+    if __role == None:
+        # Extract uid from the certificate itself
+        __role = x509.get_x509_dn_field(file_get_contents(cert_file), 'role')
 
 class HTTPSConnection(HTTPConnection):
     """
@@ -271,7 +275,7 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
         print 'PASSES UID CHECK'
         sys.stdout.flush()
         if(dict['role'].endswith('faulttolerance') or
-           self.config_parser.get('manager', 'TYPE') == 'faulttolerance')):
+           __role == 'managerfaulttolerance'):
             print 'IT RETURNS OK'
             sys.stdout.flush()
             return ok
