@@ -4,6 +4,7 @@ from conpaas.services.faulttolerance.manager import Service
 from tests.conftest import config_parser, simple_config
 from mockito import when
 from os.path import expanduser
+from pytest import raises
 
 
 CLUSTER = 'testing-cluster'
@@ -76,11 +77,16 @@ class TestFaultToleranceGanglia():
         assert not errors
 
     def test_add_datasources(self):
-        self.build_datasource(CLUSTER + '1', 'test.ganglia.datasource.host1',
-                                             'test.ganglia.datasource.master1')
-        self.build_datasource(CLUSTER + '2', 'test.ganglia.datasource.host2')
+        d1 = self.build_datasource(CLUSTER + '1',
+                                   'test.ganglia.datasource.host1',
+                                   'test.ganglia.datasource.master1')
+        d2 = self.build_datasource(CLUSTER + '2',
+                                   'test.ganglia.datasource.host2')
         errors = self.ftg.add_datasources(self.datasources.values())
         assert not errors
+
+        with raises(TypeError):
+            self.ftg.add_datasources([d1, d2])
 
     def test_get_datasource_by_cluster_name(self):
         ds = self.ftg.get_datasource_by_cluster_name(CLUSTER + '1')
