@@ -252,10 +252,9 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
     if dict['role'] == 'frontend':
         return ok
 
-    elif dict['role'] == 'agent' or dict['role'] == 'manager':
-        if ((dict['UID'] != __uid or dict['serviceLocator'] != __sid) or
-            (dict.has_key('contentType') and
-             dict['contentType'] != 'faulttolerance')):
+    elif dict['role'] == 'agent' or dict['role'].startswith('manager'):
+        if (dict['UID'] != __uid or dict['serviceLocator'] != __sid or
+            not dict['role'].endswith('faulttolerance')):
                 return False
 
     return ok
@@ -281,7 +280,7 @@ def _conpaas_callback_user(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
-    if dict['role'] != 'manager':
+    if not dict['role'].startswith('manager'):
        return False
 
     if dict['UID'] != __uid:
@@ -304,7 +303,7 @@ def _conpaas_callback_director(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
-    if dict['role'] != 'manager':
+    if not dict['role'].startswith('manager'):
        return False
 
     return ok 

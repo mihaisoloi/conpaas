@@ -194,7 +194,7 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
-        if dict['role'] != 'manager' and dict['role'] != 'agent':
+        if not dict['role'].startswith('manager') and dict['role'] != 'agent':
            return False
 
         uid = self.config_parser.get('agent', 'USER_ID')
@@ -234,7 +234,7 @@ class ConpaasSecureServer(HTTPSServer):
             return ok
 
         # Check if request from user or manager
-        if dict['role'] != 'user' and dict['role'] != 'manager':
+        if dict['role'] != 'user' and not dict['role'].startswith('manager'):
             return False
 
         uid = self.config_parser.get('manager', 'USER_ID')
@@ -242,10 +242,10 @@ class ConpaasSecureServer(HTTPSServer):
             return False
 
         # If request from manager, check the SID
-        if dict['role'] == 'manager':
+        if dict['role'].startswith('manager'):
             sid = self.config_parser.get('manager', 'SERVICE_ID')
-            if (dict['serviceLocator'] != sid or (dict.has_key('contentType')
-                and dict['contentType'] != 'faulttolerance')):
+            if (dict['serviceLocator'] != sid or
+                not dict['role'].endswith('faulttolerance')):
                 return False
         
         #print 'Received request from %s' % x509.get_subject()

@@ -109,5 +109,4 @@ if __name__ == '__main__':
     # the x509Name conventions are taken from the OpenSSL c library
     assert create_x509_req(req_key, userId='3', serviceLocator='101',
                            O='ConPaaS', emailAddress='info@conpaas.eu',
-                           CN='ConPaaS', role='agent',
-                           contentType='faulttolerance')
+                           CN='ConPaaS', role='managerfaulttolerance')

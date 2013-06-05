@@ -251,8 +251,7 @@ class Service(Datasource):
                                           'list_nodes_by_ip'))['nodes']
 
     def get_manager_state(self):
-        return check_response(jsonrpc_get(self.manager, 443, '/',
-                              'get_service_info'))['state']
+        return jsonrpc_get(self.manager, 443, '/', 'get_service_info')['state']
 
     @staticmethod
     def from_dict(datasource):
