@@ -251,7 +251,8 @@ class ConpaasSecureServer(HTTPSServer):
         if dict['role'].startswith('manager'):
             sid = self.config_parser.get('manager', 'SERVICE_ID')
             if (dict['serviceLocator'] != sid):
-                if(dict['role'].endswith('faulttolerance')):
+                if(dict['role'].endswith('faulttolerance') or
+                   self.config_parser.get('manager', 'TYPE') == 'faulttolerance'):
                     return ok
                 return False
         
