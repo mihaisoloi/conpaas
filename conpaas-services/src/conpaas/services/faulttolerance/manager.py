@@ -192,7 +192,7 @@ class Service(Datasource):
                                    if host.ip != self.manager][0]
                     sleep(10)    # checking every 10 seconds
 
-        if self.master is None:
+        if not self.master:
             Thread(target=check_master).start()
 
     def __start_agents_monitor(self):

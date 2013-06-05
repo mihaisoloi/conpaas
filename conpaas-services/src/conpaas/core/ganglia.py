@@ -222,9 +222,13 @@ class FaultToleranceGanglia(ManagerGanglia):
         self._metad_config(self.gridName, self.cluster_name, datasources)
 
     def get_datasource_by_cluster_name(self, clusterName):
+        '''
+            @return the datasource for the cluster
+            each cluster has an unique name
+        '''
         if self.current_datasources:
             return [datasource for datasource in self.current_datasources
-                    if datasource.name == clusterName]
+                    if datasource['clusterName'] == clusterName][0]
 
     def restart(self):
         """Upon service addition to the metad file we need to restart gmetad"""
@@ -236,7 +240,7 @@ class FaultToleranceGanglia(ManagerGanglia):
 
 class Datasource(object):
 
-    def __init__(self, clusterName, hostName, masterIp=None):
+    def __init__(self, clusterName, hostName, masterIp=''):
         self.name = clusterName
         self.manager = hostName
         self.master = masterIp
