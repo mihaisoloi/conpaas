@@ -184,7 +184,7 @@ class Service(Datasource):
             Checks service for master to add as backup datasource
         '''
         def check_master():
-            while self.master is None:
+            while not self.master:
                 hosts = self.ganglia.getCluster().getHosts()
                 if len(hosts) == 2:
                     self.needsUpdate = True
@@ -251,7 +251,8 @@ class Service(Datasource):
                                           'list_nodes_by_ip'))['nodes']
 
     def get_manager_state(self):
-        return jsonrpc_get(self.manager, 443, '/', 'get_service_info')['state']
+        return check_response(jsonrpc_get(self.manager, 443, '/',
+                                          'get_service_info'))['state']
 
     @staticmethod
     def from_dict(datasource):

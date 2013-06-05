@@ -48,8 +48,8 @@ class TestManager():
 
     def test_classify(self, manager):
         if manager is not None:
-            when(Service)._Service__start_checking_master().thenReturn(True)
-            when(Service)._Service__start_checking_agents().thenReturn(True)
+            when(Service)._Service__start_master_monitor().thenReturn(True)
+            when(Service)._Service__start_agents_monitor().thenReturn(True)
             test_services = [Service('test1', 'manager1', 'master1'),
                              Service('test2', 'manager2', 'master2'),
                              Service('test3', 'manager3', 'master3')]

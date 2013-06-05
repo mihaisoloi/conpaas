@@ -194,9 +194,6 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
-        print 'Callback agent Dictionary: $s' % dict
-        sys.stdout.flush()
-
         if not dict['role'].startswith('manager') and dict['role'] != 'agent':
            return False
 
@@ -205,8 +202,8 @@ class ConpaasSecureServer(HTTPSServer):
         if dict['UID'] != uid or dict['serviceLocator'] != sid:
             return False
         
-        print 'Received request from %s' % x509.get_subject()
-        sys.stdout.flush()
+        #print 'Received request from %s' % x509.get_subject()
+        #sys.stdout.flush()
         return ok
 
     def _conpaas_callback_manager(self, connection, x509, errnum, errdepth,ok):
@@ -232,10 +229,6 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
-        print 'Server'
-        print 'Callback Manager Dictionary: %s' % dict
-        sys.stdout.flush()
-
         # Check if request from frontend
         if dict['role'] == 'frontend':
             return ok
@@ -243,27 +236,20 @@ class ConpaasSecureServer(HTTPSServer):
         # Check if request from user or manager
         if dict['role'] != 'user' and not dict['role'].startswith('manager'):
             return False
-        print 'PASSES ROLE CHECK'
-        sys.stdout.flush()
         uid = self.config_parser.get('manager', 'USER_ID')
         if dict['UID'] != uid:
             return False
 
-        print 'PASSES UID CHECK'
-        sys.stdout.flush()
         # If request from manager, check the SID
         if dict['role'].startswith('manager'):
             sid = self.config_parser.get('manager', 'SERVICE_ID')
             if (dict['serviceLocator'] != sid):
-                if(dict['role'].endswith('faulttolerance') or
-                   self.config_parser.get('manager', 'TYPE') == 'faulttolerance'):
-                    print 'IT RETURNS OK'
-                    sys.stdout.flush()
+                if(dict['role'].endswith('faulttolerance')):
                     return ok
                 return False
         
-        print 'Received request from %s' % x509.get_subject()
-        sys.stdout.flush()
+        #print 'Received request from %s' % x509.get_subject()
+        #sys.stdout.flush()
 
         return ok
 
