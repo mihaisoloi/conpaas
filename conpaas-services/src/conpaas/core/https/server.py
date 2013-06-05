@@ -242,17 +242,22 @@ class ConpaasSecureServer(HTTPSServer):
         # Check if request from user or manager
         if dict['role'] != 'user' and not dict['role'].startswith('manager'):
             return False
-
+        print 'PASSES ROLE CHECK'
+        sys.stdout.flush()
         uid = self.config_parser.get('manager', 'USER_ID')
         if dict['UID'] != uid:
             return False
 
+        print 'PASSES UID CHECK'
+        sys.stdout.flush()
         # If request from manager, check the SID
         if dict['role'].startswith('manager'):
             sid = self.config_parser.get('manager', 'SERVICE_ID')
             if (dict['serviceLocator'] != sid):
                 if(dict['role'].endswith('faulttolerance') or
                    self.config_parser.get('manager', 'TYPE') == 'faulttolerance'):
+                    print 'IT RETURNS OK'
+                    sys.stdout.flush()
                     return ok
                 return False
         
