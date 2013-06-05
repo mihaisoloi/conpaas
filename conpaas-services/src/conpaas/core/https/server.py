@@ -194,6 +194,9 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
+        print 'Callback agent Dictionary: $s' % dict
+        sys.stdout.flush()
+
         if not dict['role'].startswith('manager') and dict['role'] != 'agent':
            return False
 
@@ -202,8 +205,8 @@ class ConpaasSecureServer(HTTPSServer):
         if dict['UID'] != uid or dict['serviceLocator'] != sid:
             return False
         
-        #print 'Received request from %s' % x509.get_subject()
-        #sys.stdout.flush()
+        print 'Received request from %s' % x509.get_subject()
+        sys.stdout.flush()
         return ok
 
     def _conpaas_callback_manager(self, connection, x509, errnum, errdepth,ok):
@@ -229,6 +232,9 @@ class ConpaasSecureServer(HTTPSServer):
                 if value == 'CA':
                     return ok
 
+        print 'Callback Manager Dictionary: $s' % dict
+        sys.stdout.flush()
+
         # Check if request from frontend
         if dict['role'] == 'frontend':
             return ok
@@ -247,10 +253,11 @@ class ConpaasSecureServer(HTTPSServer):
             if (dict['serviceLocator'] != sid):
                 if(dict['role'].endswith('faulttolerance')):
                     return ok
-                return False
+                else:
+                    return False
         
-        #print 'Received request from %s' % x509.get_subject()
-        #sys.stdout.flush()
+        print 'Received request from %s' % x509.get_subject()
+        sys.stdout.flush()
 
         return ok
 

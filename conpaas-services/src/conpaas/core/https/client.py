@@ -71,6 +71,7 @@ Created on June, 2012
 
 import socket
 import mimetypes
+import sys
 from cStringIO import StringIO
 from urllib import urlencode
 
@@ -215,12 +216,18 @@ def _conpaas_callback_agent(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
+    print 'Callback agent Dictionary: $s' % dict
+    sys.stdout.flush()
+
     if dict['role'] != 'agent':
        return False
 
     if dict['UID'] != __uid or dict['serviceLocator'] != __sid:
        return False
-        
+
+    print 'Sent request to %s' % x509.get_subject()
+    sys.stdout.flush()
+
     return ok 
 
 def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
@@ -249,6 +256,9 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
+    print 'Callback Manager Dictionary: $s' % dict
+    sys.stdout.flush()
+
     if dict['role'] == 'frontend':
         return ok
 
@@ -256,7 +266,11 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
         if (dict['UID'] != __uid or dict['serviceLocator'] != __sid):
             if(dict['role'].endswith('faulttolerance')):
                 return ok
-            return False
+            else:
+                return False
+
+    print 'Sent request to %s' % x509.get_subject()
+    sys.stdout.flush()
 
     return ok
 
