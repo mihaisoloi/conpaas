@@ -82,7 +82,7 @@ from conpaas.core.misc import file_get_contents
 
 import json
 
-from . import x509
+from conpaas.core.https import x509
 
 __client_ctx = None
 __uid = None
@@ -216,7 +216,7 @@ def _conpaas_callback_agent(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
-    print 'Callback agent Dictionary: $s' % dict
+    print 'Callback agent Dictionary: %s' % dict
     sys.stdout.flush()
 
     if dict['role'] != 'agent':
@@ -256,18 +256,19 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
             if value == 'CA':
                 return ok
 
-    print 'Callback Manager Dictionary: $s' % dict
+    print 'Callback Manager Dictionary: %s' % dict
     sys.stdout.flush()
 
     if dict['role'] == 'frontend':
         return ok
 
-    elif dict['role'] == 'agent' or dict['role'].startswith('manager'):
-        if (dict['UID'] != __uid or dict['serviceLocator'] != __sid):
-            if(dict['role'].endswith('faulttolerance')):
-                return ok
-            else:
-                return False
+    if dict['role'] == 'agent' or dict['role'].startswith('manager'):
+        return False
+
+    if (dict['UID'] != __uid or dict['serviceLocator'] != __sid):
+        if(dict['role'].endswith('faulttolerance')):
+            return ok
+        return False
 
     print 'Sent request to %s' % x509.get_subject()
     sys.stdout.flush()
@@ -479,11 +480,11 @@ if __name__ == "__main__":
     conpaas_init_ssl_ctx('/etc/conpaas-security/certs', 'manager')
     print https_post('testbed2.conpaas.eu', 443, 
             '/security/callback/decrementUserCredit.php', params={'sid': 454, 'decrement': 1})
-    #print https_get('testbed2.conpaas.eu', 443, '/')
-    #print r.status
-    #print r.reason
-    #print r.read()
-    #r = jsonrpc_get('192.168.122.149', 5555, '/', 'check_agent_process')
-    #print r
-    #r = jsonrpc_post('testbed2.conpaas.eu', 9999, '/','method')
-    #print r
+    print https_get('testbed2.conpaas.eu', 443, '/')
+    print r.status
+    print r.reason
+    print r.read()
+    r = jsonrpc_get('192.168.122.149', 5555, '/', 'check_agent_process')
+    print r
+    r = jsonrpc_post('testbed2.conpaas.eu', 9999, '/','method')
+    print r
