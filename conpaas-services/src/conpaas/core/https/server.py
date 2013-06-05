@@ -244,8 +244,9 @@ class ConpaasSecureServer(HTTPSServer):
         # If request from manager, check the SID
         if dict['role'].startswith('manager'):
             sid = self.config_parser.get('manager', 'SERVICE_ID')
-            if (dict['serviceLocator'] != sid or
-                not dict['role'].endswith('faulttolerance')):
+            if (dict['serviceLocator'] != sid):
+                if(dict['role'].endswith('faulttolerance')):
+                    return ok
                 return False
         
         #print 'Received request from %s' % x509.get_subject()
