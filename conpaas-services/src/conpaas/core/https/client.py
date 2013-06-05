@@ -260,14 +260,14 @@ def _conpaas_callback_manager(connection, x509, errnum, errdepth, ok):
         if key == 'CN':
             if value == 'CA':
                 return ok
-    print 'Client'
+    print 'Client', __role
     print 'Callback Manager Dictionary: %s' % dict
     sys.stdout.flush()
 
     if dict['role'] == 'frontend':
         return ok
 
-    if dict['role'] == 'agent' or dict['role'].startswith('manager'):
+    if dict['role'] != 'agent' and not dict['role'].startswith('manager'):
         return False
 
     print 'PASSES ROLE CHECK'
@@ -492,11 +492,11 @@ if __name__ == "__main__":
     conpaas_init_ssl_ctx('/etc/conpaas-security/certs', 'manager')
     print https_post('testbed2.conpaas.eu', 443, 
             '/security/callback/decrementUserCredit.php', params={'sid': 454, 'decrement': 1})
-    print https_get('testbed2.conpaas.eu', 443, '/')
-    print r.status
-    print r.reason
-    print r.read()
-    r = jsonrpc_get('192.168.122.149', 5555, '/', 'check_agent_process')
-    print r
-    r = jsonrpc_post('testbed2.conpaas.eu', 9999, '/','method')
-    print r
+    #print https_get('testbed2.conpaas.eu', 443, '/')
+    #print r.status
+    #print r.reason
+    #print r.read()
+    #r = jsonrpc_get('192.168.122.149', 5555, '/', 'check_agent_process')
+    #print r
+    #r = jsonrpc_post('testbed2.conpaas.eu', 9999, '/','method')
+    #print r
