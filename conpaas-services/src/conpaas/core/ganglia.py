@@ -218,6 +218,10 @@ class FaultToleranceGanglia(ManagerGanglia):
             @param datasources: list of Datasource objects
             @type datasources: L{conpaas.core.ganglia.Datasource}
         """
+        if isinstance(datasources, dict):
+            raise TypeError("datasources is of type %s instead of type dict" %
+                            type(datasources))
+
         self.current_datasources = datasources
         self._metad_config(self.gridName, self.cluster_name, datasources)
 

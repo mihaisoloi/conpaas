@@ -46,11 +46,11 @@ class FaultToleranceManager(XtreemFSManager):
             @param kwargs: json dict containting a list datasources for ganglia
             @type kwargs: D{'datasources': L{conpaas.core.ganglia.Datasource}}
         '''
-
+        self.logger.debug("Registering new datasources")
         removedServices = self.classify(
             self.datasource_to_service(kwargs["datasources"]))[0]
 
-        self.ganglia.add_datasources(self.services)
+        self.ganglia.add_datasources(self.services.to_dict())
 
         for service in removedServices:
             service.shutdown()
