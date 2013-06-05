@@ -107,14 +107,15 @@ def conpaas_init_ssl_ctx(dir, role, uid=None, sid=None):
             # Extract uid from the certificate itself
             uid = x509.get_x509_dn_field(file_get_contents(cert_file), 'UID')
 
-    global __client_ctx, __uid, __sid
+    global __client_ctx, __uid, __sid, __role
+    if __role == None:
+        # Extract uid from the certificate itself
+        __role = x509.get_x509_dn_field(file_get_contents(cert_file), 'role')
+
     __client_ctx = _init_context(SSL.SSLv23_METHOD, cert_file, key_file,
                         ca_cert_file, verify_callback)
     __uid = uid
     __sid = sid
-    if __role == None:
-        # Extract uid from the certificate itself
-        __role = x509.get_x509_dn_field(file_get_contents(cert_file), 'role')
 
 class HTTPSConnection(HTTPConnection):
     """
