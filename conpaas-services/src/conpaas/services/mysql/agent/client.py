@@ -70,7 +70,7 @@ def get_master_state(host, port):
     if _check(result):
         return result
     else:
-        return False
+        return gangliaUpdate
 
 def get_slave_state(host, port):
     method = 'get_slave_state'
@@ -78,7 +78,7 @@ def get_slave_state(host, port):
     if _check(result):
         return result
     else:
-        return False
+        return gangliaUpdate
 
 # TODO: with dump ?
 def create_master(host, port, master_server_id):
@@ -109,7 +109,7 @@ def get_all_users(host, port):
     if _check(result):
         return result
     else:
-        return False
+        return gangliaUpdate
 
 def set_password(host, port, username, password):
     method = 'set_password'

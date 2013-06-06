@@ -51,7 +51,7 @@ class FaultToleranceManager(XtreemFSManager):
         self.logger.debug("Registering new datasources")
 
         datasources = kwargs["datasources"]
-        self.ganglia.add_datasources(datasources)
+        self.update_ganglia(datasources)
 
         removedServices = self.classify(
             self.datasource_to_service(datasources))[0]
@@ -85,8 +85,11 @@ class FaultToleranceManager(XtreemFSManager):
         return [Service.from_dict(datasource)
                 for datasource in datasources]
 
-    def update_ganglia(self):
-        self.ganglia.add_datasources(self.services)
+    def update_ganglia(self, datasources = None):
+        if datasources:
+            self.ganglia.add_datasources(datasources)
+        else:
+            self.ganglia.add_datasources([s.to_dict() for s in self.services])
         self.ganglia.restart()
 
     def check_for_updates(self):
@@ -96,18 +99,20 @@ class FaultToleranceManager(XtreemFSManager):
             New master added, or failed service node, manager unreachable'
         '''
         def check():
-            while self.S_RUNNING:
-                update_ganglia = False
+            while self.state == self.S_RUNNING or self.state == self.S_INIT:
+                gangliaUpdate = False
                 for s in self.get_services_to_update():
                     ds = self.ganglia.get_datasource_by_cluster_name(s.name)
-                    if ds.master != s.master:
+                    if ds['masterIp'] != s.master:
                         # not the same master or new one
-                        update_ganglia = True
+                        gangliaUpdate = True
 
                     if s.failed:
                         self.failed_node_action(s)
 
-                if update_ganglia:
+                    s.needsUpdate = False
+
+                if gangliaUpdate:
                     self.logger.debug("Updating gmetad config")
                     self.update_ganglia()
 
