@@ -312,6 +312,11 @@ class MySQLManager(BaseManager):
         Thread(target=self._do_add_nodes, args=[1, 'default']).start()
 
     @expose('POST')
+    def update_all_gmond(self):
+        #TODO: needs implementing
+        return HttpJsonResponse()
+
+    @expose('POST')
     def remove_nodes(self, kwargs):
         if self.state != self.S_RUNNING:
             self.logger.debug('Wrong state to remove nodes')

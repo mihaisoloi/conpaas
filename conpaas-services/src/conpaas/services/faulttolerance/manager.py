@@ -30,6 +30,8 @@ class FaultToleranceManager(XtreemFSManager):
         self.state = self.S_INIT
         self.logger.debug("Leaving FaultToleranceManager initialization")
         self.services = []
+        # start checking for service updates
+        self.check_for_updates()
 
     @expose('POST')
     def startup(self, kwargs):
@@ -106,6 +108,7 @@ class FaultToleranceManager(XtreemFSManager):
                         self.failed_node_action(s)
 
                 if update_ganglia:
+                    self.logger.debug("Updating gmetad config")
                     self.update_ganglia()
 
                 sleep(10)
@@ -236,6 +239,13 @@ class Service(Datasource):
         # talk to the coresponding FT manager for restart
         check_response(jsonrpc_post(self.manager, 443, '/', 'restart_node',
                                     {'nodeIp': node}))
+
+    def update_all_mond_agents(self):
+        '''
+            Updates all the monitoring agents of the nodes
+        '''
+        return check_response(jsonrpc_get(self.manager, 443, '/',
+                                          'update_all_gmond'))
 
     def shutdown(self):
         self.terminate = True

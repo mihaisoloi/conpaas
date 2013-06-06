@@ -340,6 +340,11 @@ class MySQLAgent(BaseAgent):
       except AgentException as e:
         return HttpErrorResponse(e.message)
 
+    @expose('POST')
+    def update_gmond(self, kwargs):
+        #self.ganglia.add_master(kwargs['masterIp'])
+       return HttpJsonResponse()
+
     ################################################################################
     #                      methods executed on a MySQL Slave                       #
     ################################################################################
