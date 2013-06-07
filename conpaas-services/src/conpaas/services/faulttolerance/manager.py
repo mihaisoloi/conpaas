@@ -185,15 +185,16 @@ class Service(Datasource):
                           (self.name, self.manager))
         def wait_for_state():
             """Poll the state of manager till it matches."""
-            state = ''
-            while state != 'INIT' or state != 'PROLOGUE' or state != 'RUNNING':
+            state = None
+            #when the manager can respond with it's state it means it's up
+            while not state:
                 try:
                     state = self.get_manager_state()
                 except (error, URLError):
                     sleep(2)
 
         def check_manager_running():
-            #if service started fast we may miss the INIT, or PROLOGUE
+
             wait_for_state()
 
             self.ganglia.connect()
