@@ -183,18 +183,18 @@ class Service(Datasource):
         '''
         self.logger.debug("Waiting to connect to service %s manager %s" %
                           (self.name, self.manager))
-        def wait_for_state(target_state):
-            """Poll the state of manager till it matches 'state'."""
+        def wait_for_state():
+            """Poll the state of manager till it matches."""
             state = ''
-            while state != target_state:
+            while state != 'INIT' or state != 'PROLOGUE' or state != 'RUNNING':
                 try:
                     state = self.get_manager_state()
                 except (error, URLError):
                     sleep(2)
 
         def check_manager_running():
-
-            wait_for_state('INIT')
+            #if service started fast we may miss the INIT, or PROLOGUE
+            wait_for_state()
 
             self.ganglia.connect()
             self.__start_master_monitor()
@@ -212,6 +212,8 @@ class Service(Datasource):
             while not self.master:
                 hosts = self.ganglia.getCluster(self.name).getHosts()
                 if len(hosts) == 2:
+                    self.logger.debug("Adding master to datasource cluster %s"
+                                      % self.name)
                     self.needsUpdate = True
                     self.master = [host.ip for host in hosts
                                    if host.ip != self.manager][0]
