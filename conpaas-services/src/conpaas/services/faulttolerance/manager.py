@@ -221,14 +221,17 @@ class Service(Datasource):
 
         def check_master():
             while not self.master:
-                if self.ganglia.isConnected():
-                    self.ganglia.refresh()
+                if self.ganglia.clusterSize() == 1:
+                    try:
+                        self.ganglia.refresh()
+                    except Exception as e:
+                        self.logger.debug("Couldn't parse ganglia xml %s" % e)
                 if self.ganglia.clusterSize() == 2:
                     self.logger.debug("Adding master to datasource cluster %s"
                                       % self.name)
                     self.needsUpdate = True
                     self.master = self.get_ganglia_nodes()[0]
-                    sleep(10)    # checking every 10 seconds
+                sleep(10)    # checking every 10 seconds
 
         if not self.master:
             Thread(target=check_master).start()
@@ -253,9 +256,8 @@ class Service(Datasource):
         self.logger.debug("Started monitoring agent nodes")
 
         def check_agents():
+            last_refresh = 0
             while not self.terminate:
-                if self.ganglia.isConnected():
-                    self.ganglia.refresh()
                 # removing manager from list
                 hosts = self.get_ganglia_nodes()
                 manager_nodes = self.get_manager_node_list()
@@ -275,6 +277,13 @@ class Service(Datasource):
                 if not self.needsUpdate and self.failed:
                     self.needsUpdate = True
 
+                if last_refresh > 10:  # refresh every 300 sec
+                    try:
+                        self.ganglia.refresh()
+                    except Exception as e:
+                        self.logger.debug("Couldn't parse ganglia xml %s" % e)
+                    last_refresh = 0
+                last_refresh += 1
                 sleep(30)    # checking every 30 seconds
 
         Thread(target=check_agents).start()
