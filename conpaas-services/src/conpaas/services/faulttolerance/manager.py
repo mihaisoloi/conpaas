@@ -6,6 +6,7 @@ from conpaas.core.https.server import HttpJsonResponse
 from gmon.ganglia import Ganglia
 from time import sleep
 from threading import Thread
+from inspect import currentframe
 
 
 #TODO: if manager fails restart gmond on all nodes
@@ -194,47 +195,37 @@ class Service(Datasource):
                 except (error, URLError):
                     sleep(2)
 
-        def wait_for_ganglia():
-            """Trying to parse the xml output of the ganglia node"""
-            while not self.ganglia.isConnected():
-                try:
-                    self.logger.debug("Connecting to ganglia")
-                    self.ganglia.connect()
-                except Exception:
-                    sleep(2)
-
         def check_manager_running():
 
             wait_for_state()
-            wait_for_ganglia()
-            self.__start_master_monitor()
+            self.ganglia.connect()
+            self.check_master()
             self.__start_agents_monitor()
 
         Thread(target=check_manager_running).start()
 
-    def __start_master_monitor(self):
+    def __log(self, text):
+        func = currentframe().f_back.f_code
+        self.logger.debug("[%s: %s] %s" % (self.name, func.co_name, text))
+
+    def poll_ganglia(self):
+        try:
+            self.ganglia.refresh()
+        except Exception as e:
+            self.__log("Couldn't parse ganglia xml: %s" % e)
+
+    def check_master(self):
         '''
             Checks service for master to add as backup datasource
         '''
-        self.logger.debug("Waiting for new master to service %s manager %s" %
-                          (self.name, self.manager))
-
-        def check_master():
-            while not self.master:
-                if self.ganglia.clusterSize() == 1:
-                    try:
-                        self.ganglia.refresh()
-                    except Exception as e:
-                        self.logger.debug("Couldn't parse ganglia xml %s" % e)
-                if self.ganglia.clusterSize() == 2:
-                    self.logger.debug("Adding master to datasource cluster %s"
-                                      % self.name)
-                    self.needsUpdate = True
-                    self.master = self.get_ganglia_nodes()[0]
-                sleep(10)    # checking every 10 seconds
-
-        if not self.master:
-            Thread(target=check_master).start()
+        self.__log("Waiting for new master")
+        while not self.master:
+            self.poll_ganglia()
+            if self.ganglia.clusterSize() == 2:
+                self.__log("Adding master to datasource")
+                self.needsUpdate = True
+                self.master = self.get_ganglia_nodes()[0]
+            sleep(10)    # checking every 10 seconds
 
     def get_ganglia_nodes(self):
         '''
@@ -253,18 +244,17 @@ class Service(Datasource):
 
             TODO: maybe should interact with manager to check for downed nodes
         '''
-        self.logger.debug("Started monitoring agent nodes")
+        self.__log("Started monitoring agent nodes")
 
         def check_agents():
-            last_refresh = 0
             while not self.terminate:
+                self.poll_ganglia()
                 # removing manager from list
                 hosts = self.get_ganglia_nodes()
                 manager_nodes = self.get_manager_node_list()
 
-                self.logger.debug("Ganglia registered nodes: %s" % hosts)
-                self.logger.debug("Manager registered nodes: %s" %
-                                  manager_nodes)
+                self.__log("Ganglia registered nodes: %s" % hosts)
+                self.__log("Manager registered nodes: %s" % manager_nodes)
                 self.failed = [node for node in self.agents
                                if node not in hosts]
                 self.agents = hosts
@@ -272,18 +262,13 @@ class Service(Datasource):
                 for node in self.failed:
                     if node not in manager_nodes:
                         # it must mean that it was stopped by manager
-                        self.failed.pop(node)
+                        self.failed.remove(node)
+                    else:
+                        self.__log("Node %s is failed" % node)
 
                 if not self.needsUpdate and self.failed:
                     self.needsUpdate = True
 
-                if last_refresh > 10:  # refresh every 300 sec
-                    try:
-                        self.ganglia.refresh()
-                    except Exception as e:
-                        self.logger.debug("Couldn't parse ganglia xml %s" % e)
-                    last_refresh = 0
-                last_refresh += 1
                 sleep(30)    # checking every 30 seconds
 
         Thread(target=check_agents).start()
@@ -301,7 +286,7 @@ class Service(Datasource):
         '''
             Updates all the monitoring agents of the nodes
         '''
-        self.logger.debug("Updating all monitoring agents on the nodes")
+        self.__log("Updating all monitoring agents on the nodes")
         return check_response(jsonrpc_get(self.manager, 443, '/',
                                           'update_all_gmond'))
 
@@ -311,6 +296,7 @@ class Service(Datasource):
     def get_manager_node_list(self):
         '''
             Talks to manager for checking and ordering things around
+            The manager is not included in the node list
 
             list_nodes and if node not in list and failed it means that it was
             stopped, if node in list and failed we need to take action
@@ -319,13 +305,13 @@ class Service(Datasource):
         '''
         nodes = check_response(jsonrpc_get(self.manager, 443, '/',
                                            'list_nodes_by_ip'))['nodes']
-        self.logger.debug("All nodes registered to service %s" % nodes)
+        self.__log("All nodes registered to service %s" % nodes)
         return nodes
 
     def get_manager_state(self):
         state = check_response(jsonrpc_get(self.manager, 443, '/',
                                            'get_service_info'))['state']
-        self.logger.debug("Service state is %s" % state)
+        self.__log("Service state is %s" % state)
         return state
 
     @staticmethod

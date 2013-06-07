@@ -132,7 +132,7 @@ class Configuration(object):
         return self.serviceNodes[id]
 
     def getMySQLNodeByIp(self, ip):
-        return [node for node in self.serviceNodes if node.ip == ip][0]
+        return [node for node in self.serviceNodes if node == ip][0]
 
     '''
       Add new Service Node to the server (configuration).
