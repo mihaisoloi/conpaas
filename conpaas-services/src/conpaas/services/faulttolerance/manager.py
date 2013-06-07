@@ -85,7 +85,8 @@ class FaultToleranceManager(XtreemFSManager):
         return [Service.from_dict(datasource)
                 for datasource in datasources]
 
-    def update_ganglia(self, datasources = None):
+    def update_ganglia(self, datasources=None):
+        self.logger.debug("Updating ganglia")
         if datasources:
             self.ganglia.add_datasources(datasources)
         else:
@@ -99,11 +100,18 @@ class FaultToleranceManager(XtreemFSManager):
             New master added, or failed service node, manager unreachable'
         '''
         def check():
+
             while self.state == self.S_RUNNING or self.state == self.S_INIT:
+
                 gangliaUpdate = False
+
                 for s in self.get_services_to_update():
                     ds = self.ganglia.get_datasource_by_cluster_name(s.name)
+                    self.logger.debug("Ganglia check returns datasource %s" %
+                                      ds)
                     if ds['masterIp'] != s.master:
+                        self.logger.debug("Master added to service %s" %
+                                          s.name)
                         # not the same master or new one
                         gangliaUpdate = True
 
@@ -121,6 +129,8 @@ class FaultToleranceManager(XtreemFSManager):
         Thread(target=check).start()
 
     def failed_node_action(self, service):
+        self.logger.debug("Taking action for failed node in service %s" %
+                          service.name)
         for node in service.failed:
             if node is service.manager:
                 # restart manager and assign it's nodes to the new one
@@ -147,6 +157,7 @@ class FaultToleranceManager(XtreemFSManager):
 
 
 from conpaas.core.https.client import jsonrpc_get, jsonrpc_post, check_response
+from conpaas.core.log import create_logger
 from socket import error
 from urllib2 import URLError
 
@@ -163,13 +174,15 @@ class Service(Datasource):
         self.failed = []
         self.needsUpdate = False
         self.terminate = False
-
+        self.logger = create_logger(__name__)
         self.connect()
 
     def connect(self):
         '''
             Checks to see when the deployment is completed so we can connect
         '''
+        self.logger.debug("Waiting to connect to service %s manager %s" %
+                          (self.name, self.manager))
         def wait_for_state(target_state):
             """Poll the state of manager till it matches 'state'."""
             state = ''
@@ -193,6 +206,8 @@ class Service(Datasource):
         '''
             Checks service for master to add as backup datasource
         '''
+        self.logger.debug("Waiting for new master to service %s manager %s" %
+                          (self.name, self.manager))
         def check_master():
             while not self.master:
                 hosts = self.ganglia.getCluster().getHosts()
@@ -214,12 +229,16 @@ class Service(Datasource):
 
             TODO: maybe should interact with manager to check for downed nodes
         '''
+        self.logger.debug("Started monitoring agent nodes")
         def check_agents():
             while not self.terminate:
                 hosts = self.ganglia.getCluster().getHosts()
                 manager_nodes = self.get_manager_node_list()
 
                 new_agents = [host.ip for host in hosts]
+                self.logger.debug("Ganglia registered nodes: %s" % new_agents)
+                self.logger.debug("Manager registered nodes: %s" %
+                                  manager_nodes)
                 self.failed = [node for node in self.agents
                                if node not in new_agents]
                 self.agents = new_agents
@@ -249,6 +268,7 @@ class Service(Datasource):
         '''
             Updates all the monitoring agents of the nodes
         '''
+        self.logger.debug("Updating all monitoring agents on the nodes")
         return check_response(jsonrpc_get(self.manager, 443, '/',
                                           'update_all_gmond'))
 
@@ -264,12 +284,16 @@ class Service(Datasource):
 
             @return L[String] list of ip's registered
         '''
-        return check_response(jsonrpc_get(self.manager, 443, '/',
-                                          'list_nodes_by_ip'))['nodes']
+        nodes = check_response(jsonrpc_get(self.manager, 443, '/',
+                                           'list_nodes_by_ip'))['nodes']
+        self.logger.debug("All nodes registered to service %s" % nodes)
+        return nodes
 
     def get_manager_state(self):
-        return check_response(jsonrpc_get(self.manager, 443, '/',
-                                          'get_service_info'))['state']
+        state = check_response(jsonrpc_get(self.manager, 443, '/',
+                                           'get_service_info'))['state']
+        self.logger.debug("Service state is %s" % state)
+        return state
 
     @staticmethod
     def from_dict(datasource):

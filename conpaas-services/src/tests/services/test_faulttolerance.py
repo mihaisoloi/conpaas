@@ -32,6 +32,19 @@ class TestManager():
 
     def setup_class(cls):
         when(Ganglia).connect().thenReturn(True)
+        when(FaultToleranceManager).update_ganglia().thenReturn(True)
+
+        when(Service).get_manager_state().thenReturn('INIT')
+        when(Service)._Service__start_master_monitor().thenReturn(True)
+        when(Service)._Service__start_agents_monitor().thenReturn(True)
+        cls.test_services = [Service('test1', 'manager1', 'master1'),
+                             Service('test2', 'manager2', 'master2'),
+                             Service('test3', 'manager3', 'master3')]
+
+        when(FaultToleranceGanglia).add_datasources().thenReturn(True)
+        when(FaultToleranceGanglia).\
+            get_datasource_by_cluster_name().thenReturn(
+                    Service('test1', 'manager1', 'master1').to_dict())
 
     def test_start_service(self, manager):
         '''Start fault tolerance service'''
@@ -40,7 +53,6 @@ class TestManager():
 
     def test_register(self, manager):
         if manager is not None:
-            when(FaultToleranceGanglia).add_datasources().thenReturn(True)
             kwargs = {'datasources': [
                 Datasource('testing-cluster',
                            'test.ganglia.datasource.host2').to_dict()]}
@@ -48,21 +60,41 @@ class TestManager():
 
     def test_classify(self, manager):
         if manager is not None:
-            when(Service)._Service__start_master_monitor().thenReturn(True)
-            when(Service)._Service__start_agents_monitor().thenReturn(True)
-            test_services = [Service('test1', 'manager1', 'master1'),
-                             Service('test2', 'manager2', 'master2'),
-                             Service('test3', 'manager3', 'master3')]
-            manager.services = test_services[:]
+            manager.services = self.test_services[:]
             newService = Service('test4', 'manager4', 'master4')
-            test_services.append(newService)
+            self.test_services.append(newService)
             assert {0: [], 1: [newService]} == \
-                manager.classify(test_services)  # adding one service
+                manager.classify(self.test_services)  # adding one service
 
-            assert {0: test_services[:len(test_services)-1], 1: []} == \
-                manager.classify([test_services.pop()])  # removing 3 services
+            assert {0: self.test_services[:len(self.test_services)-1], 1: []} == \
+                manager.classify([self.test_services.pop()])  # removing 3 services
 
             assert len(manager.services) == 1
+
+    def test_get_services_to_update(self, manager):
+        if manager is not None:
+            manager.services = self.test_services[:]
+
+            assert not manager.get_services_to_update()
+
+            manager.services[0].needsUpdate = True
+
+            assert len(manager.get_services_to_update()) == 1
+
+            manager.services[0].needsUpdate = False
+
+    def test_check_for_updates(self, manager):
+        if manager is not None:
+            manager.services = self.test_services[:]
+
+            manager.services[0].master = 'master10'
+            manager.services[0].needsUpdate = True
+
+            assert not manager.services[0].needsUpdate
+
+            #need to stop threads
+            manager.state = manager.S_STOPPED
+            #manager.services[0].needsUpdate = False
 
     def teardown_class(cls):
         unstub()
