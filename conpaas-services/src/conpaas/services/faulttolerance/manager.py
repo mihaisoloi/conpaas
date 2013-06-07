@@ -183,6 +183,7 @@ class Service(Datasource):
         '''
         self.logger.debug("Waiting to connect to service %s manager %s" %
                           (self.name, self.manager))
+
         def wait_for_state():
             """Poll the state of manager till it matches."""
             state = None
@@ -209,19 +210,27 @@ class Service(Datasource):
         '''
         self.logger.debug("Waiting for new master to service %s manager %s" %
                           (self.name, self.manager))
+
         def check_master():
             while not self.master:
-                hosts = self.ganglia.getCluster(self.name).getHosts()
-                if len(hosts) == 2:
+                self.ganglia.refresh()
+                if self.ganglia.clusterSize() == 2:
                     self.logger.debug("Adding master to datasource cluster %s"
                                       % self.name)
                     self.needsUpdate = True
-                    self.master = [host for host in hosts
-                                   if host != self.manager][0]
+                    self.master = self.get_ganglia_nodes()[0]
                     sleep(10)    # checking every 10 seconds
 
         if not self.master:
             Thread(target=check_master).start()
+
+    def get_ganglia_nodes(self):
+        '''
+            @return ganglia nodes ips without manager
+        '''
+        return [host.ip for host in self.ganglia.getCluster(self.name)
+                .getHosts() if host.ip != self.manager]
+
 
     def __start_agents_monitor(self):
         '''
@@ -233,11 +242,12 @@ class Service(Datasource):
             TODO: maybe should interact with manager to check for downed nodes
         '''
         self.logger.debug("Started monitoring agent nodes")
+
         def check_agents():
             while not self.terminate:
+                self.ganglia.refresh()
                 # removing manager from list
-                hosts = [host for host in self.ganglia.getCluster(self.name).\
-                         getHosts() if host != self.manager]
+                hosts = self.get_ganglia_nodes()
                 manager_nodes = self.get_manager_node_list()
 
                 self.logger.debug("Ganglia registered nodes: %s" % hosts)
@@ -250,7 +260,7 @@ class Service(Datasource):
                 for node in self.failed:
                     if node not in manager_nodes:
                         # it must mean that it was stopped by manager
-                        self.failed.remove(node)
+                        self.failed.pop(node)
 
                 if not self.needsUpdate and self.failed:
                     self.needsUpdate = True
