@@ -210,7 +210,7 @@ class Service(Datasource):
                           (self.name, self.manager))
         def check_master():
             while not self.master:
-                hosts = self.ganglia.getCluster().getHosts()
+                hosts = self.ganglia.getCluster(self.name).getHosts()
                 if len(hosts) == 2:
                     self.needsUpdate = True
                     self.master = [host.ip for host in hosts
@@ -232,7 +232,9 @@ class Service(Datasource):
         self.logger.debug("Started monitoring agent nodes")
         def check_agents():
             while not self.terminate:
-                hosts = self.ganglia.getCluster().getHosts()
+                hosts = self.ganglia.getCluster(self.name).getHosts()
+# removing manager from list as it's not in the scope of the search
+                hosts.remove(self.manager)
                 manager_nodes = self.get_manager_node_list()
 
                 new_agents = [host.ip for host in hosts]
