@@ -182,8 +182,7 @@ class Service(Datasource):
         '''
             Checks to see when the deployment is completed so we can connect
         '''
-        self.logger.debug("Waiting to connect to service %s manager %s" %
-                          (self.name, self.manager))
+        self.__log("Waiting to connect manager")
 
         def wait_for_state():
             """Poll the state of manager till it matches."""
@@ -257,6 +256,8 @@ class Service(Datasource):
                 self.__log("Manager registered nodes: %s" % manager_nodes)
                 self.failed = [node for node in self.agents
                                if node not in hosts]
+                self.failed.extend([node for node in hosts
+                                    if not node.alive()])
                 self.agents = hosts
 
                 for node in self.failed:
@@ -305,7 +306,6 @@ class Service(Datasource):
         '''
         nodes = check_response(jsonrpc_get(self.manager, 443, '/',
                                            'list_nodes_by_ip'))['nodes']
-        self.__log("All nodes registered to service %s" % nodes)
         return nodes
 
     def get_manager_state(self):
