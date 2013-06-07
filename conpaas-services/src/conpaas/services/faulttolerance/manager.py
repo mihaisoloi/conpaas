@@ -216,8 +216,8 @@ class Service(Datasource):
                     self.logger.debug("Adding master to datasource cluster %s"
                                       % self.name)
                     self.needsUpdate = True
-                    self.master = [host.ip for host in hosts
-                                   if host.ip != self.manager][0]
+                    self.master = [host for host in hosts
+                                   if host != self.manager][0]
                     sleep(10)    # checking every 10 seconds
 
         if not self.master:
@@ -235,23 +235,22 @@ class Service(Datasource):
         self.logger.debug("Started monitoring agent nodes")
         def check_agents():
             while not self.terminate:
-                hosts = self.ganglia.getCluster(self.name).getHosts()
-# removing manager from list as it's not in the scope of the search
-                hosts.remove(self.manager)
+                # removing manager from list
+                hosts = [host for host in self.ganglia.getCluster(self.name).\
+                         getHosts() if host != self.manager]
                 manager_nodes = self.get_manager_node_list()
 
-                new_agents = [host.ip for host in hosts]
-                self.logger.debug("Ganglia registered nodes: %s" % new_agents)
+                self.logger.debug("Ganglia registered nodes: %s" % hosts)
                 self.logger.debug("Manager registered nodes: %s" %
                                   manager_nodes)
                 self.failed = [node for node in self.agents
-                               if node not in new_agents]
-                self.agents = new_agents
+                               if node not in hosts]
+                self.agents = hosts
 
                 for node in self.failed:
                     if node not in manager_nodes:
                         # it must mean that it was stopped by manager
-                        self.failed.pop(node)
+                        self.failed.remove(node)
 
                 if not self.needsUpdate and self.failed:
                     self.needsUpdate = True
