@@ -194,11 +194,19 @@ class Service(Datasource):
                 except (error, URLError):
                     sleep(2)
 
+        def wait_for_ganglia():
+            """Trying to parse the xml output of the ganglia node"""
+            while not self.ganglia.isConnected():
+                try:
+                    self.logger.debug("Connecting to ganglia")
+                    self.ganglia.connect()
+                except Exception:
+                    sleep(2)
+
         def check_manager_running():
 
             wait_for_state()
-
-            self.ganglia.connect()
+            wait_for_ganglia()
             self.__start_master_monitor()
             self.__start_agents_monitor()
 
@@ -213,7 +221,8 @@ class Service(Datasource):
 
         def check_master():
             while not self.master:
-                self.ganglia.refresh()
+                if self.ganglia.isConnected():
+                    self.ganglia.refresh()
                 if self.ganglia.clusterSize() == 2:
                     self.logger.debug("Adding master to datasource cluster %s"
                                       % self.name)
@@ -245,7 +254,8 @@ class Service(Datasource):
 
         def check_agents():
             while not self.terminate:
-                self.ganglia.refresh()
+                if self.ganglia.isConnected():
+                    self.ganglia.refresh()
                 # removing manager from list
                 hosts = self.get_ganglia_nodes()
                 manager_nodes = self.get_manager_node_list()
