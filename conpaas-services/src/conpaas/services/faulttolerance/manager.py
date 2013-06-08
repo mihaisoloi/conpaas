@@ -228,10 +228,10 @@ class Service(Datasource):
 
     def get_ganglia_nodes(self):
         '''
-            @return ganglia nodes ips without manager
+            @return live ganglia nodes ips without manager
         '''
         return [host.ip for host in self.ganglia.getCluster(self.name)
-                .getHosts() if host.ip != self.manager]
+                .getHosts() if host.ip != self.manager and host.alive()]
 
 
     def __start_agents_monitor(self):
@@ -256,8 +256,6 @@ class Service(Datasource):
                 self.__log("Manager registered nodes: %s" % manager_nodes)
                 self.failed = [node for node in self.agents
                                if node not in hosts]
-                self.failed.extend([node for node in hosts
-                                    if not node.alive()])
                 self.agents = hosts
 
                 for node in self.failed:
