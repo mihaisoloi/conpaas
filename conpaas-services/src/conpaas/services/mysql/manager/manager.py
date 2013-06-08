@@ -302,10 +302,10 @@ class MySQLManager(BaseManager):
             Deploys the node on the same cloud.
         '''
         #TODO: add checks for input
-
-        nodeIp = kwargs['nodeIp']
-
-        node = self.config.getMySQLNodeByIp(nodeIp)
+        self.state = self.S_RUNNING
+        #removing old node
+        node = self.config.getMySQLNodeByIp(kwargs['nodeIp'])
+        self.controller.delete_nodes([node])
         self.config.removeMySQLServiceNode(node.id)
 
         #TODO: for now only starting on one cloud, state is reset by adding

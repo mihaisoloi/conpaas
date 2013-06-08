@@ -114,7 +114,7 @@ class Configuration(object):
         
     '''Returns the list of service nodes as tuples <IP, PORT>.'''
     def getMySQLTuples(self):
-        return [ [serviceNode.ip, MYSQL_PORT] for serviceNode in self.serviceNodes.values() ]
+        return [ [serviceNode.ip, self.MYSQL_PORT] for serviceNode in self.serviceNodes.values() ]
       
     ''' Returns the list of IPs of MySQL instances'''
     def getMySQLIPs(self):
@@ -132,7 +132,8 @@ class Configuration(object):
         return self.serviceNodes[id]
 
     def getMySQLNodeByIp(self, ip):
-        return [node for node in self.serviceNodes if node == ip][0]
+        return [node for node in self.serviceNodes.values()
+                if node.ip == ip][0]
 
     '''
       Add new Service Node to the server (configuration).
