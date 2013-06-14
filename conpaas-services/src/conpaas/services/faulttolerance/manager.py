@@ -178,6 +178,8 @@ class Service(Datasource):
         self.logger = create_logger(__name__)
         self.connect()
 
+        Thread(target=self.start_checks).start()
+
     def connect(self):
         '''
             Checks to see when the deployment is completed so we can connect
@@ -194,24 +196,29 @@ class Service(Datasource):
                 except (error, URLError):
                     sleep(2)
 
-        def check_manager_running():
+        wait_for_state()
+        self.ganglia.connect()
 
-            wait_for_state()
-            self.ganglia.connect()
-            self.check_master()
-            self.__start_agents_monitor()
-
-        Thread(target=check_manager_running).start()
+    def start_checks(self):
+        '''
+            starts waiting for master and agents afterwards
+        '''
+        self.check_master()
+        #intentional pause in between master and agents
+        Thread(target=self.check_agents).start()
 
     def __log(self, text):
         func = currentframe().f_back.f_code
         self.logger.debug("[%s: %s] %s" % (self.name, func.co_name, text))
 
     def poll_ganglia(self):
+        response = False
         try:
             self.ganglia.refresh()
+            response = True
         except Exception as e:
             self.__log("Couldn't parse ganglia xml: %s" % e)
+        return response
 
     def check_master(self):
         '''
@@ -233,8 +240,7 @@ class Service(Datasource):
         return [host.ip for host in self.ganglia.getCluster(self.name)
                 .getHosts() if host.ip != self.manager and host.alive()]
 
-
-    def __start_agents_monitor(self):
+    def check_agents(self):
         '''
             Monitors agents to make sure they are properly stop/started
             Updates the agents list, using ganglia.
@@ -244,33 +250,41 @@ class Service(Datasource):
             TODO: maybe should interact with manager to check for downed nodes
         '''
         self.__log("Started monitoring agent nodes")
-
-        def check_agents():
-            while not self.terminate:
-                self.poll_ganglia()
-                # removing manager from list
+        while not self.terminate:
+            hosts = []
+            if self.poll_ganglia():
                 hosts = self.get_ganglia_nodes()
+            try:
                 manager_nodes = self.get_manager_node_list()
-
-                self.__log("Ganglia registered nodes: %s" % hosts)
-                self.__log("Manager registered nodes: %s" % manager_nodes)
-                self.failed = [node for node in self.agents
-                               if node not in hosts]
-                self.agents = hosts
-
-                for node in self.failed:
-                    if node not in manager_nodes:
-                        # it must mean that it was stopped by manager
-                        self.failed.remove(node)
-                    else:
-                        self.__log("Node %s is failed" % node)
-
-                if not self.needsUpdate and self.failed:
+            except (error, URLError):
+                # manager has failed if not responding with node list
+                # we assume that only manager failed try and contact master
+                if not hosts:
+                    self.__log("Service manager is failed switching to\
+backup ganglia on master host %s" % self.master)
+                    self.failed.append(self.manager)
                     self.needsUpdate = True
+                    self.ganglia = Ganglia(self.master)
+                    self.ganglia.connect()
+                    break
 
-                sleep(30)    # checking every 30 seconds
+            self.__log("Ganglia registered nodes: %s" % hosts)
+            self.__log("Manager registered nodes: %s" % manager_nodes)
+            self.failed = [node for node in self.agents
+                            if node not in hosts]
+            self.agents = hosts
 
-        Thread(target=check_agents).start()
+            for node in self.failed:
+                if node not in manager_nodes:
+                    # it must mean that it was stopped by manager
+                    self.failed.remove(node)
+                else:
+                    self.__log("Node %s is failed" % node)
+
+            if not self.needsUpdate and self.failed:
+                self.needsUpdate = True
+
+            sleep(30)    # checking every 30 seconds
 
     def restart_node(self, node):
         '''
