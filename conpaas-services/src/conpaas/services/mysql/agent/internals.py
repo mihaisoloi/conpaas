@@ -304,7 +304,6 @@ class MySQLAgent(BaseAgent):
       if len(kwargs) != 0:
         return HttpErrorResponse(AgentException(
             AgentException.E_ARGS_UNEXPECTED, kwargs.keys()).message)
-      with web_lock:
         return _get(kwargs, self.master_file, role.MySQLMaster)
 
     @expose('POST')

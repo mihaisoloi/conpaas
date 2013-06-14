@@ -307,9 +307,12 @@ class MySQLManager(BaseManager):
         node = self.config.getMySQLNodeByIp(kwargs['nodeIp'])
         self.controller.delete_nodes([node])
         self.config.removeMySQLServiceNode(node.id)
-
         #TODO: for now only starting on one cloud, state is reset by adding
-        Thread(target=self._do_add_nodes, args=[1, 'default']).start()
+        if node.isMaster:
+            Thread(target=self._do_startup, args=['default']).start()
+        else:
+            Thread(target=self._do_add_nodes, args=[1, 'default']).start()
+        return HttpJsonResponse()
 
     @expose('POST')
     def update_all_gmond(self):

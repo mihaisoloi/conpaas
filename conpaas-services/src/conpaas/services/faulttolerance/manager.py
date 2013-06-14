@@ -132,16 +132,16 @@ class FaultToleranceManager(XtreemFSManager):
     def failed_node_action(self, service):
         self.logger.debug("Taking action for failed node in service %s" %
                           service.name)
+        if service.manager in service.failed:
+            # tell director to restart manager of service
+            # reassign the new node list to the new manager
+            pass
+
+        if service.master in service.failed:
+            service.restart_node(service.master)
+            service.update_all_mond_agents()
+
         for node in service.failed:
-            if node is service.manager:
-                # restart manager and assign it's nodes to the new one
-                pass
-            elif node is service.master:
-                # for mysql it holds the process agent for server
-                # need more than simple node restart
-                service.restart_node(node)
-                service.update_all_mond_agents()
-            else:
                 service.restart_node(node)
 
     def get_services_to_update(self):
@@ -189,7 +189,6 @@ class Service(Datasource):
         def wait_for_state():
             """Poll the state of manager till it matches."""
             state = None
-            #when the manager can respond with it's state it means it's up
             while not state:
                 try:
                     state = self.get_manager_state()
@@ -271,7 +270,7 @@ backup ganglia on master host %s" % self.master)
             self.__log("Ganglia registered nodes: %s" % hosts)
             self.__log("Manager registered nodes: %s" % manager_nodes)
             self.failed = [node for node in self.agents
-                            if node not in hosts]
+                           if node not in hosts]
             self.agents = hosts
 
             for node in self.failed:
