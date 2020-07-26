@@ -27,11 +27,11 @@ class MySQLAgent(BaseAgent):
       self.VAR_CACHE = config_parser.get('agent', 'VAR_CACHE')
       self.VAR_RUN = config_parser.get('agent', 'VAR_RUN')
 
-      self.master_file = join(self.VAR_TMP, 'master.pickle')
-      self.slave_file = join(self.VAR_TMP, 'slave.pickle')
+      self.main_file = join(self.VAR_TMP, 'main.pickle')
+      self.subordinate_file = join(self.VAR_TMP, 'subordinate.pickle')
      
-      self.master_lock = Lock()
-      self.slave_lock = Lock()
+      self.main_lock = Lock()
+      self.subordinate_lock = Lock()
      
     def _get(self, get_params, class_file, pClass):
         if not exists(class_file):
@@ -104,23 +104,23 @@ class MySQLAgent(BaseAgent):
             return HttpErrorResponse(ex.message)
 
     ################################################################################
-    #                      methods executed on a MySQL Master                      #
+    #                      methods executed on a MySQL Main                      #
     ################################################################################
-    def _master_get_params(self, kwargs):
+    def _main_get_params(self, kwargs):
         ret = {}
-        if 'master_server_id' not in kwargs:
-            raise AgentException(AgentException.E_ARGS_MISSING, 'master_server_id')
-        ret['master_server_id'] = kwargs.pop('master_server_id')
+        if 'main_server_id' not in kwargs:
+            raise AgentException(AgentException.E_ARGS_MISSING, 'main_server_id')
+        ret['main_server_id'] = kwargs.pop('main_server_id')
         if len(kwargs) != 0:
             raise AgentException(AgentException.E_ARGS_UNEXPECTED, kwargs.keys())
         ret['config'] = self.config_parser
         return ret
      
-    def _slave_get_params(self, kwargs):
+    def _subordinate_get_params(self, kwargs):
         ret = {}
-        if 'slaves' not in kwargs:
-            raise AgentException(AgentException.E_ARGS_MISSING, 'slaves')
-        ret = kwargs.pop('slaves')
+        if 'subordinates' not in kwargs:
+            raise AgentException(AgentException.E_ARGS_MISSING, 'subordinates')
+        ret = kwargs.pop('subordinates')
 
         if len(kwargs) != 0:
             raise AgentException(AgentException.E_ARGS_UNEXPECTED, kwargs.keys())
@@ -129,83 +129,83 @@ class MySQLAgent(BaseAgent):
 
     # TODO: clean code
     def _take_snapshot(self):
-        if not exists(self.master_file):
+        if not exists(self.main_file):
             return HttpErrorResponse(AgentException(
                 AgentException.E_CONFIG_NOT_EXIST).message)
         try:
-            fd = open(self.master_file, 'r')
+            fd = open(self.main_file, 'r')
             p = pickle.load(fd)
             ret = p.take_snapshot()
             fd.close()
         except Exception as e:
             ex = AgentException(AgentException.E_CONFIG_READ_FAILED, 
-			    role.MySQLMaster.__name__, self.master_file, detail=e)
+			    role.MySQLMain.__name__, self.main_file, detail=e)
             self.logger.exception(ex.message)
             raise
         else:
             return ret
 
     def _set_password(self, username, password):
-        if not exists(self.master_file):
+        if not exists(self.main_file):
             return HttpErrorResponse(AgentException(
                 AgentException.E_CONFIG_NOT_EXIST).message)
         try:
-            fd = open(self.master_file, 'r')
+            fd = open(self.main_file, 'r')
             p = pickle.load(fd)
             p.set_password(username, password)
             fd.close()
         except Exception as e:
             ex = AgentException(AgentException.E_CONFIG_READ_FAILED, 
-			    role.MySQLMaster.__name__, self.master_file, detail=e)
+			    role.MySQLMain.__name__, self.main_file, detail=e)
             self.logger.exception(ex.message)
             raise
 
-    def _register_slave(self, slave_ip):
-        if not exists(self.master_file):
+    def _register_subordinate(self, subordinate_ip):
+        if not exists(self.main_file):
             return HttpErrorResponse(AgentException(
                 AgentException.E_CONFIG_NOT_EXIST).message)
         try:
-            fd = open(self.master_file, 'r')
+            fd = open(self.main_file, 'r')
             p = pickle.load(fd)
-            p.register_slave(slave_ip)
+            p.register_subordinate(subordinate_ip)
             fd.close()
         except Exception as e:
             ex = AgentException(AgentException.E_CONFIG_READ_FAILED, 
-			    role.MySQLMaster.__name__, self.master_file, detail=e)
+			    role.MySQLMain.__name__, self.main_file, detail=e)
             self.logger.exception(ex.message)
             raise
 
     def _load_dump(self, f):
-        if not exists(self.master_file):
+        if not exists(self.main_file):
             return HttpErrorResponse(AgentException(
                 AgentException.E_CONFIG_NOT_EXIST).message)
         try:
-            fd = open(self.master_file, 'r')
+            fd = open(self.main_file, 'r')
             p = pickle.load(fd)
             p.load_dump(f)
             fd.close()
         except Exception as e:
             ex = AgentException(AgentException.E_CONFIG_READ_FAILED, 
-			    role.MySQLMaster.__name__, self.master_file, detail=e)
+			    role.MySQLMain.__name__, self.main_file, detail=e)
             self.logger.exception(ex.message)
             raise
         
     @expose('POST')
-    def create_master(self, kwargs):
-      """Create a replication master"""
-      self.logger.debug('Creating master')
+    def create_main(self, kwargs):
+      """Create a replication main"""
+      self.logger.debug('Creating main')
       try: 
-        kwargs = self._master_get_params(kwargs)
-        self.logger.debug('master server id = %s' % kwargs['master_server_id']) 
+        kwargs = self._main_get_params(kwargs)
+        self.logger.debug('main server id = %s' % kwargs['main_server_id']) 
       except AgentException as e:
         return HttpErrorResponse(e.message)
       else:
-        with self.master_lock:
-          return self._create(kwargs, self.master_file, role.MySQLMaster)
+        with self.main_lock:
+          return self._create(kwargs, self.main_file, role.MySQLMain)
 
     @expose('POST')
     def set_password(self, kwargs):
-      """Create a replication master"""
+      """Create a replication main"""
       self.logger.debug('Updating password')
       try:
         if 'username' not in kwargs:
@@ -242,41 +242,41 @@ class MySQLAgent(BaseAgent):
             return HttpJsonResponse()
 
     @expose('POST')
-    def create_slave(self, kwargs):
+    def create_subordinate(self, kwargs):
       '''
-	 Creates a slave. Steps:
+	 Creates a subordinate. Steps:
              1. do a mysqldump and record position
-             2. send the dump to the slave agent and let it
-	        start the mysql slave
+             2. send the dump to the subordinate agent and let it
+	        start the mysql subordinate
       '''
-      self.logger.debug('master in create_slave ')
+      self.logger.debug('main in create_subordinate ')
       ret = self._take_snapshot()
 
       # TODO: why multiple keys?
       for position in ret.keys():
-          master_log_file = ret[position]['binfile']
-          master_log_pos = ret[position]['position']
+          main_log_file = ret[position]['binfile']
+          main_log_pos = ret[position]['position']
           mysqldump_path = ret[position]['mysqldump_path']
       try: 
-          kwargs = self._slave_get_params(kwargs)
+          kwargs = self._subordinate_get_params(kwargs)
 	  for key in kwargs:
-               # TODO: Why do I receive the slave_ip in unicode??  
-               slave = kwargs[key]
-               self._register_slave(str(slave['ip'])) 
+               # TODO: Why do I receive the subordinate_ip in unicode??  
+               subordinate = kwargs[key]
+               self._register_subordinate(str(subordinate['ip'])) 
                from conpaas.services.mysql.agent import client
-               client.setup_slave(str(slave['ip']), slave['port'], \
+               client.setup_subordinate(str(subordinate['ip']), subordinate['port'], \
                              key, \
-			     self.my_ip, master_log_file, \
-                             master_log_pos, mysqldump_path)
-               self.logger.debug('Created slave %s' % str(slave['ip']))
+			     self.my_ip, main_log_file, \
+                             main_log_pos, mysqldump_path)
+               self.logger.debug('Created subordinate %s' % str(subordinate['ip']))
           return HttpJsonResponse()
       except AgentException as e:
         return HttpErrorResponse(e.message)
 
     ################################################################################
-    #                      methods executed on a MySQL Slave                       #
+    #                      methods executed on a MySQL Subordinate                       #
     ################################################################################
-    def _slave_get_setup_params(self, kwargs):
+    def _subordinate_get_setup_params(self, kwargs):
         ret = {}
         if 'mysqldump_file' not in kwargs:
              return HttpErrorResponse(AgentException(
@@ -288,25 +288,25 @@ class MySQLAgent(BaseAgent):
                     detail='"mysqldump_file" should be a file').message)
         ret['mysqldump_file'] = file.file
 
-        if 'master_host' not in kwargs:
+        if 'main_host' not in kwargs:
             return HttpErrorResponse(AgentException(
-                AgentException.E_ARGS_MISSING, 'master_host').message)
-        ret['master_host'] = kwargs.pop('master_host')
+                AgentException.E_ARGS_MISSING, 'main_host').message)
+        ret['main_host'] = kwargs.pop('main_host')
   
-        if 'master_log_file' not in kwargs:
+        if 'main_log_file' not in kwargs:
             return HttpErrorResponse(AgentException(
-                AgentException.E_ARGS_MISSING, 'master_log_file').message)
-        ret['master_log_file'] = kwargs.pop('master_log_file')
+                AgentException.E_ARGS_MISSING, 'main_log_file').message)
+        ret['main_log_file'] = kwargs.pop('main_log_file')
 
-        if 'master_log_pos' not in kwargs:
+        if 'main_log_pos' not in kwargs:
             return HttpErrorResponse(AgentException(
-                AgentException.E_ARGS_MISSING, 'master_log_pos').message)
-        ret['master_log_pos'] = kwargs.pop('master_log_pos')
+                AgentException.E_ARGS_MISSING, 'main_log_pos').message)
+        ret['main_log_pos'] = kwargs.pop('main_log_pos')
 
-        if 'slave_server_id' not in kwargs:
+        if 'subordinate_server_id' not in kwargs:
             return HttpErrorResponse(AgentException(
-                AgentException.E_ARGS_MISSING, 'slave_server_id').message)
-        ret['slave_server_id'] = kwargs.pop('slave_server_id')
+                AgentException.E_ARGS_MISSING, 'subordinate_server_id').message)
+        ret['subordinate_server_id'] = kwargs.pop('subordinate_server_id')
 
         if len(kwargs) != 0:
             return HttpErrorResponse(AgentException(
@@ -316,17 +316,17 @@ class MySQLAgent(BaseAgent):
         return ret
 
     @expose('UPLOAD')
-    def setup_slave(self, kwargs):
-        self.logger.debug('slave in setup_slave ') 
+    def setup_subordinate(self, kwargs):
+        self.logger.debug('subordinate in setup_subordinate ') 
         self.logger.debug(kwargs)
         #TODO: archive the dump?
-        """Create a replication Slave"""
+        """Create a replication Subordinate"""
         try:
-            kwargs = self._slave_get_setup_params(kwargs)
+            kwargs = self._subordinate_get_setup_params(kwargs)
         except AgentException as e:
             return HttpErrorResponse(e.message)
         else:
-            with self.slave_lock:
-                return self._create(kwargs, self.slave_file, role.MySQLSlave)
+            with self.subordinate_lock:
+                return self._create(kwargs, self.subordinate_file, role.MySQLSubordinate)
 
-    # TODO: Update slave - if manager changes! 
+    # TODO: Update subordinate - if manager changes! 

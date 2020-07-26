@@ -160,11 +160,11 @@ class MySQLServer(object):
         
     
 
-class MySQLMaster(MySQLServer):
-    ''' Class describing a MySQL replication master. 
+class MySQLMain(MySQLServer):
+    ''' Class describing a MySQL replication main. 
         It can be initializad with a dump, or without '''
 
-    def __init__(self, config=None, master_server_id=0, dump=None):
+    def __init__(self, config=None, main_server_id=0, dump=None):
         sql_logger.debug("Entering init MySQLServerConfiguration")
         MySQLServer.__init__(self, config)
         
@@ -178,7 +178,7 @@ class MySQLMaster(MySQLServer):
         self.wsrepconfig.write(newf)
         newf.close()
     
-        # Start the replication master
+        # Start the replication main
         self.start()
 
         # Change root password - not set as installation
@@ -191,11 +191,11 @@ class MySQLMaster(MySQLServer):
 
     '''Before creating a data snapshot or starting 
     the replication process, you should record the 
-    position of the binary log on the master. You will 
-    need this information when configuring the slave so 
-    that the slave knows where within the binary log to 
+    position of the binary log on the main. You will 
+    need this information when configuring the subordinate so 
+    that the subordinate knows where within the binary log to 
     start executing events. See Section 15.1.1.4, Obtaining 
-    the Replication Master Binary Log Coordinates. 
+    the Replication Main Binary Log Coordinates. 
 
     1st session
     mysql> FLUSH TABLES WITH READ LOCK;
@@ -206,7 +206,7 @@ class MySQLMaster(MySQLServer):
 
     close 2nd session
 
-    on the master 
+    on the main 
     mysqldump --all-databases --lock-all-tables >dbdump.db
 
     1st session
@@ -290,14 +290,14 @@ class MySQLMaster(MySQLServer):
                 'port': self.port 
                }
 
-class MySQLSlave(MySQLServer):
-    ''' Class describing a MySQL replication slave. 
+class MySQLSubordinate(MySQLServer):
+    ''' Class describing a MySQL replication subordinate. 
     '''
-    def __init__(self, config = None, master_host = None):
+    def __init__(self, config = None, main_host = None):
         MySQLServer.__init__(self, config)
         
         path = self.wsrep_filepath
-        self.wsrepconfig.set("mysqld", "wsrep_cluster_address", "gcomm://%s" % master_host)
+        self.wsrepconfig.set("mysqld", "wsrep_cluster_address", "gcomm://%s" % main_host)
         self.wsrepconfig.set("mysqld", "wsrep_provider", self.wsrep_provider)
         self.wsrepconfig.set("mysqld", "wsrep_sst_method", self.wsrep_sst_method)
         self.wsrepconfig.set("mysqld", "wsrep_sst_auth", self.wsrep_user + ":" + self.wsrep_password)
@@ -306,7 +306,7 @@ class MySQLSlave(MySQLServer):
         self.wsrepconfig.write(newf)
         newf.close()
   
-        # Start the replication slave
+        # Start the replication subordinate
         self.start()
         
     def status(self):
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     #config_file = "/home/miha/Desktop/manager.cfg"
     config = ConfigParser.ConfigParser()
     config.readfp(open(config_file))
-    master = MySQLMaster(config)
+    main = MySQLMain(config)
     
     
     

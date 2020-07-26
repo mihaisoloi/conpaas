@@ -37,12 +37,12 @@ class MySQLManager(BaseManager):
         self.config = Configuration(conf)
         self.logger.debug("Leaving MySQLServer initialization")
 
-        # The unique id that is used to start the master/slave
+        # The unique id that is used to start the main/subordinate
         self.id = 0
 
     def _do_startup(self, cloud):
-        ''' Starts up the service. The first node will be the MYSQL master.
-            The next nodes will be slaves to this master. '''
+        ''' Starts up the service. The first node will be the MYSQL main.
+            The next nodes will be subordinates to this main. '''
 
         startCloud = self._init_cloud(cloud)
         #TODO: Get any existing configuration (if the service was stopped and restarted)
@@ -58,35 +58,35 @@ class MySQLManager(BaseManager):
                                                     client.check_agent_process,
                                                     self.config.AGENT_PORT,
                                                     startCloud)
-            self._start_master(node_instances)
-            self.config.addMySQLServiceNodes(nodes=node_instances, isMaster=True)
+            self._start_main(node_instances)
+            self.config.addMySQLServiceNodes(nodes=node_instances, isMain=True)
         except:
             self.logger.exception('do_startup: Failed to request a new node on cloud %s' % cloud)
             self.state = self.S_STOPPED
             return
         self.state = self.S_RUNNING
 
-    def _start_master(self, nodes):
+    def _start_main(self, nodes):
         for serviceNode in nodes:
             try:
-                client.create_master(serviceNode.ip, self.config.AGENT_PORT,
+                client.create_main(serviceNode.ip, self.config.AGENT_PORT,
                                     self._get_server_id())
             except client.AgentException:
-                self.logger.exception('Failed to start MySQL Master at node %s' % str(serviceNode))
+                self.logger.exception('Failed to start MySQL Main at node %s' % str(serviceNode))
                 self.state = self.S_ERROR
                 raise
 
-    def _start_slave(self, nodes, master):
-        slaves = {}
+    def _start_subordinate(self, nodes, main):
+        subordinates = {}
         for serviceNode in nodes:
-            slaves[str(self._get_server_id())] = {'ip':serviceNode.ip,
+            subordinates[str(self._get_server_id())] = {'ip':serviceNode.ip,
                                                   'port':self.config.AGENT_PORT}
         try:
-            self.logger.debug('create_slave for master.ip  = %s' % master)
-            client.create_slave(master.ip,
-                                self.config.AGENT_PORT, slaves)
+            self.logger.debug('create_subordinate for main.ip  = %s' % main)
+            client.create_subordinate(main.ip,
+                                self.config.AGENT_PORT, subordinates)
         except client.AgentException:
-            self.logger.exception('Failed to start MySQL Slave at node %s' % str(serviceNode))
+            self.logger.exception('Failed to start MySQL Subordinate at node %s' % str(serviceNode))
             self.state = self.S_ERROR
             raise
 
@@ -107,8 +107,8 @@ class MySQLManager(BaseManager):
             return HttpErrorResponse(ManagerException(E_ARGS_UNEXPECTED, kwargs.keys()).message)
 
         return HttpJsonResponse({
-            'masters': [ node.id for node in self.config.getMySQLmasters() ],
-            'slaves': [ node.id for node in self.config.getMySQLslaves() ]
+            'mains': [ node.id for node in self.config.getMySQLmains() ],
+            'subordinates': [ node.id for node in self.config.getMySQLsubordinates() ]
             })
 
     @expose('GET')
@@ -136,8 +136,8 @@ class MySQLManager(BaseManager):
             'serviceNode': {
                             'id': serviceNode.id,
                             'ip': serviceNode.ip,
-                            'isMaster': serviceNode.isMaster,
-                            'isSlave': serviceNode.isSlave
+                            'isMain': serviceNode.isMain,
+                            'isSubordinate': serviceNode.isSubordinate
                             }
             })
 
@@ -155,31 +155,31 @@ class MySQLManager(BaseManager):
 
         if self.state != self.S_RUNNING:
             return HttpErrorResponse('ERROR: Wrong state to add_nodes')
-        if not 'slaves' in kwargs:
+        if not 'subordinates' in kwargs:
             return HttpErrorResponse('ERROR: Required argument doesn\'t exist')
-        if not isinstance(kwargs['slaves'], int):
+        if not isinstance(kwargs['subordinates'], int):
             return HttpErrorResponse('ERROR: Expected an integer value for "count"')
-        count = int(kwargs.pop('slaves'))
+        count = int(kwargs.pop('subordinates'))
         self.state = self.S_ADAPTING
         Thread(target=self._do_add_nodes, args=[count, kwargs['cloud']]).start()
         return HttpJsonResponse()
 
-    # TODO: also specify the master for which to add slaves
+    # TODO: also specify the main for which to add subordinates
     def _do_add_nodes(self, count, cloud):
-        # Get the master
-        masters = self.config.getMySQLmasters()
+        # Get the main
+        mains = self.config.getMySQLmains()
         startCloud = self._init_cloud(cloud)
-        # Configure the nodes as slaves
-        #TODO: modify this when multiple masters
+        # Configure the nodes as subordinates
+        #TODO: modify this when multiple mains
         try:
             node_instances = self.controller.create_nodes(count,
                                            client.check_agent_process,
                                            self.config.AGENT_PORT, startCloud)
-            for master in masters:
-                self._start_slave(node_instances, master)
-            self.config.addMySQLServiceNodes(nodes=node_instances, isSlave=True)
+            for main in mains:
+                self._start_subordinate(node_instances, main)
+            self.config.addMySQLServiceNodes(nodes=node_instances, isSubordinate=True)
         except:
-            self.logger.exception('_do_add_nodes: Could not start slave')
+            self.logger.exception('_do_add_nodes: Could not start subordinate')
             self.state = self.S_ERROR
             return
         self.state = self.S_RUNNING
@@ -212,19 +212,19 @@ class MySQLManager(BaseManager):
         if self.state != self.S_RUNNING:
             self.logger.debug('Wrong state to remove nodes')
             return HttpErrorResponse('ERROR: Wrong state to remove_nodes')
-        if not 'slaves' in kwargs:
+        if not 'subordinates' in kwargs:
             return HttpErrorResponse('ERROR: Required argument doesn\'t exist')
-        if not isinstance(kwargs['slaves'], int):
+        if not isinstance(kwargs['subordinates'], int):
             return HttpErrorResponse('ERROR: Expected an integer value for "count"')
-        count = int(kwargs.pop('slaves'))
-        if count > len(self.config.getMySQLslaves()):
+        count = int(kwargs.pop('subordinates'))
+        if count > len(self.config.getMySQLsubordinates()):
             return HttpErrorResponse('ERROR: Cannot remove so many nodes')
         self.state = self.S_ADAPTING
         Thread(target=self._do_remove_nodes, args=[count]).start()
         return HttpJsonResponse()
 
     def _do_remove_nodes(self, count):
-        nodes = self.config.getMySQLslaves()[:count]
+        nodes = self.config.getMySQLsubordinates()[:count]
         self.controller.delete_nodes(nodes)
         self.config.remove_nodes(nodes)
         self.state = self.S_RUNNING
@@ -258,8 +258,8 @@ class MySQLManager(BaseManager):
 
     def _do_shutdown(self):
         ''' Shuts down the service. '''
-        #self._stop_slaves( config.getProxyServiceNodes())
-        #self._stop_masters(config, config.getWebServiceNodes())
+        #self._stop_subordinates( config.getProxyServiceNodes())
+        #self._stop_mains(config, config.getWebServiceNodes())
         self.controller.delete_nodes(self.config.serviceNodes.values())
         self.config.serviceNodes = {}
         self.state = self.S_STOPPED
@@ -276,13 +276,13 @@ class MySQLManager(BaseManager):
         if not 'password' in kwargs:
             return HttpErrorResponse('ERROR: Required argument \'password\' doesn\'t exist')
 
-        # Get the master
-        masters = self.config.getMySQLmasters()
+        # Get the main
+        mains = self.config.getMySQLmains()
 
-        #TODO: modify this when multiple masters
+        #TODO: modify this when multiple mains
         try:
-            for master in masters:
-                client.set_password(master.ip, self.config.AGENT_PORT, kwargs['user'], kwargs['password'])
+            for main in mains:
+                client.set_password(main.ip, self.config.AGENT_PORT, kwargs['user'], kwargs['password'])
         except:
             self.logger.exception('set_password: Could not set password')
             self.state = self.S_ERROR
@@ -312,12 +312,12 @@ class MySQLManager(BaseManager):
             bytes = upload.read(2048)
         fd.close()
 
-        # Get master
-        # TODO: modify this when multiple masters
-        masters = self.config.getMySQLmasters()
+        # Get main
+        # TODO: modify this when multiple mains
+        mains = self.config.getMySQLmains()
         try:
-            for master in masters:
-                client.load_dump(master.ip, self.config.AGENT_PORT, filename)
+            for main in mains:
+                client.load_dump(main.ip, self.config.AGENT_PORT, filename)
         except:
             self.logger.exception('load_dump: could not upload mysqldump_file ')
             self.state = self.S_ERROR

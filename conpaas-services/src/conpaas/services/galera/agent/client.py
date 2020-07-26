@@ -24,20 +24,20 @@ def _check(response):
         return True
 
 # TODO: with dump ?
-def create_master(host, port, master_server_id):
-    method = 'create_master'
+def create_main(host, port, main_server_id):
+    method = 'create_main'
     params = {
-        'master_server_id': master_server_id
+        'main_server_id': main_server_id
     }
     return _check(https.client.jsonrpc_post(host, port, '/', method, params=params))
 
 
 '''
-    Methods called by the manager and executed on a master agent
+    Methods called by the manager and executed on a main agent
 '''
-def create_slave(host, port, slaves):
-    method = 'create_slave'
-    params = {'slaves': slaves}
+def create_subordinate(host, port, subordinates):
+    method = 'create_subordinate'
+    params = {'subordinates': subordinates}
     return _check(https.client.jsonrpc_post(host, port, '/', method, params=params))
 
 def configure_user(host, port, username, password):
@@ -77,10 +77,10 @@ def load_dump(host, port, mysqldump_path):
     files = [('mysqldump_file', mysqldump_path, filecontent)]
     return _check(https.client.https_post(host, port, '/', params, files=files))
 
-def setup_slave(host, port, master_host):
+def setup_subordinate(host, port, main_host):
     params = {
-        'method': 'setup_slave',
-        'master_host': master_host
+        'method': 'setup_subordinate',
+        'main_host': main_host
     }
     return _check(https.client.https_post(host, port, '/', params))
 

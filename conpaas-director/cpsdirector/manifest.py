@@ -137,7 +137,7 @@ class MGeneral():
             sid = Service.query.filter_by(application_id=appid, type='mysql').first().sid
             nodes = callmanager(sid, "list_nodes", False, {})
 
-            params = { 'serviceNodeId': nodes['masters'][0] }
+            params = { 'serviceNodeId': nodes['mains'][0] }
             details = callmanager(sid, "get_node_info", False, params)
             env = env + 'echo "env[MYSQL_IP]=\'%s\'" >> /root/ConPaaS/src/conpaas/services/webservers/etc/fpm.tmpl\n' % details['serviceNode']['ip']
             env = env + 'export MYSQL_IP=\'%s\'\n' % details['serviceNode']['ip']
@@ -421,11 +421,11 @@ class MMySql(MGeneral):
 
         if json.get('StartupInstances'):
             params = {
-                    'slaves': 1
+                    'subordinates': 1
             }
 
-            if json.get('StartupInstances').get('slaves'):
-                params['slaves'] = int(json.get('StartupInstances').get('slaves'))
+            if json.get('StartupInstances').get('subordinates'):
+                params['subordinates'] = int(json.get('StartupInstances').get('subordinates'))
 
             res = self.add_nodes(sid, params)
             if 'error' in res:

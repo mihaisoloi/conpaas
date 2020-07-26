@@ -69,7 +69,7 @@ def get_service_info(host, port):
     return _check(https.client.jsonrpc_get(host, port, '/', method))
 
 def add_nodes(host, port, count):
-    params = {'slaves': count}
+    params = {'subordinates': count}
     method = 'add_nodes'
     return _check(https.client.jsonrpc_post(host, port, '/', method, params=params))
 

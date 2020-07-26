@@ -38,21 +38,21 @@ class SQLServiceNode(ServiceNode):
 
     '''
 
-    def __init__(self, node, isMaster=False, isSlave=False):
+    def __init__(self, node, isMain=False, isSubordinate=False):
         ServiceNode.__init__(self, node.id,
                              node.ip, node.private_ip,
                              node.cloud_name)
         #self.name = vm['name']
         #self.state = vm['state']
-        self.isMaster = isMaster
-        self.isSlave = isSlave
+        self.isMain = isMain
+        self.isSubordinate = isSubordinate
         self.port = 5555
 
     '''String representation of the ServiceNode.
     @return: returns service nodes information. Id ip and if mysql is running on this service node.'''
 
     def __repr__(self):
-        return 'ServiceNode(id=%s, ip=%s, master=%s)' % (str(self.id), self.ip, str(self.isMaster))
+        return 'ServiceNode(id=%s, ip=%s, main=%s)' % (str(self.id), self.ip, str(self.isMain))
   
 class Configuration(object):
 
@@ -79,13 +79,13 @@ class Configuration(object):
     def getMySQLIPs(self):
         return [ serviceNode.ip for serviceNode in self.serviceNodes.values() ]
 
-    ''' Returns the list of MySQL masters'''
-    def getMySQLmasters(self):
-        return [ serviceNode for serviceNode in self.serviceNodes.values() if serviceNode.isMaster ]    
+    ''' Returns the list of MySQL mains'''
+    def getMySQLmains(self):
+        return [ serviceNode for serviceNode in self.serviceNodes.values() if serviceNode.isMain ]    
 
-    ''' Returns the list of MySQL slaves'''
-    def getMySQLslaves(self):
-        return [ serviceNode for serviceNode in self.serviceNodes.values() if serviceNode.isSlave ] 
+    ''' Returns the list of MySQL subordinates'''
+    def getMySQLsubordinates(self):
+        return [ serviceNode for serviceNode in self.serviceNodes.values() if serviceNode.isSubordinate ] 
 
     def getMySQLNode(self, id):
         return self.serviceNodes[id]
@@ -94,10 +94,10 @@ class Configuration(object):
       Add new Service Node to the server (configuration).
       @param accesspoint: new VM
     '''
-    def addMySQLServiceNodes(self, nodes, isMaster=False, isSlave=False):
+    def addMySQLServiceNodes(self, nodes, isMain=False, isSubordinate=False):
         self.logger.debug('Entering addMySQLServiceNode')
         for node in nodes:
-            self.serviceNodes[node.id] = SQLServiceNode(node, isMaster, isSlave)
+            self.serviceNodes[node.id] = SQLServiceNode(node, isMain, isSubordinate)
         self.logger.debug('Exiting addMySQLServiceNode')
 
     '''

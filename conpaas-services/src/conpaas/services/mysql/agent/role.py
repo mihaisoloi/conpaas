@@ -193,24 +193,24 @@ class MySQLServer(object):
 
 	return config
 
-class MySQLMaster(MySQLServer):
-    ''' Class describing a MySQL replication master. 
+class MySQLMain(MySQLServer):
+    ''' Class describing a MySQL replication main. 
         It can be initializad with a dump, or without '''
 
-    def __init__(self, config=None, master_server_id=0, dump=None):
+    def __init__(self, config=None, main_server_id=0, dump=None):
         sql_logger.debug("Entering init MySQLServerConfiguration")
         MySQLServer.__init__(self, config)
     
-        # Configure it as a master
+        # Configure it as a main
         path=self.mycnf_filepath
-        self.mysqlconfig.set("mysqld", "server-id", master_server_id)
+        self.mysqlconfig.set("mysqld", "server-id", main_server_id)
         self.mysqlconfig.set("mysqld", "log_bin", "/var/log/mysql/mysql-bin.log")
         os.remove(path)
         newf = open(path,"w")
         self.mysqlconfig.write(newf)
         newf.close()
 
-        # Start the replication master
+        # Start the replication main
         self.start()
         #if dump != None:
         #    self.load_dump(dump)
@@ -224,11 +224,11 @@ class MySQLMaster(MySQLServer):
 
     '''Before creating a data snapshot or starting 
     the replication process, you should record the 
-    position of the binary log on the master. You will 
-    need this information when configuring the slave so 
-    that the slave knows where within the binary log to 
+    position of the binary log on the main. You will 
+    need this information when configuring the subordinate so 
+    that the subordinate knows where within the binary log to 
     start executing events. See Section 15.1.1.4, Obtaining 
-    the Replication Master Binary Log Coordinates. 
+    the Replication Main Binary Log Coordinates. 
 
     1st session
     mysql> FLUSH TABLES WITH READ LOCK;
@@ -239,7 +239,7 @@ class MySQLMaster(MySQLServer):
 
     close 2nd session
 
-    on the master 
+    on the main 
     mysqldump --all-databases --lock-all-tables >dbdump.db
 
     1st session
@@ -278,15 +278,15 @@ class MySQLMaster(MySQLServer):
         db1.close()
         return ret
 
-    def register_slave(self, slave_ip):
-        sql_logger.debug("Entering init register_slave")
+    def register_subordinate(self, subordinate_ip):
+        sql_logger.debug("Entering init register_subordinate")
         db = MySQLdb.connect(self.conn_location, 'root', self.conn_password)
         exc = db.cursor()
         exc.execute('GRANT REPLICATION SLAVE ON *.*' \
                     ' TO \'%s\'@\'%s\' IDENTIFIED BY \'%s\';' \
-                      % ('root', slave_ip, self.conn_password))
+                      % ('root', subordinate_ip, self.conn_password))
         db.close()
-        sql_logger.debug("Exit init register_slave")
+        sql_logger.debug("Exit init register_subordinate")
         # TODO: test if successful
         return
 
@@ -344,30 +344,30 @@ class MySQLMaster(MySQLServer):
                }
 
 
-class MySQLSlave(MySQLServer):
-    ''' Class describing a MySQL replication slave. 
+class MySQLSubordinate(MySQLServer):
+    ''' Class describing a MySQL replication subordinate. 
         It initializes with a, or without '''
-    def __init__(self, config = None, master_host = None, \
-                 master_log_file = None, master_log_pos = 0, \
-		 mysqldump_file = None, slave_server_id = 0):
+    def __init__(self, config = None, main_host = None, \
+                 main_log_file = None, main_log_pos = 0, \
+		 mysqldump_file = None, subordinate_server_id = 0):
         MySQLServer.__init__(self, config)
 
         path=self.mycnf_filepath
-        self.mysqlconfig.set("mysqld", "server-id", slave_server_id)
+        self.mysqlconfig.set("mysqld", "server-id", subordinate_server_id)
        
-        #self.mysqlconfig.set("mysqld", "skip-slave-start", slave_server_id)        
+        #self.mysqlconfig.set("mysqld", "skip-subordinate-start", subordinate_server_id)        
         os.remove(path)
         newf=open(path,"w")
         self.mysqlconfig.write(newf)
         newf.close()
   
-        # Start the replication slave
+        # Start the replication subordinate
         self.start()
 
         # Change root password - not set at installation
         os.system("mysqladmin -u root password "  + self.conn_password)
 
-        # Configure it as a slave
+        # Configure it as a subordinate
 
         if mysqldump_file != None:
             self._load_dump(mysqldump_file)
@@ -378,12 +378,12 @@ class MySQLSlave(MySQLServer):
                     "MASTER_USER='%s', " +
                     "MASTER_PASSWORD='%s', " 
                     "MASTER_LOG_FILE='%s', " +  
-                    "MASTER_LOG_POS=%s;") % (master_host, 'root', self.conn_password, master_log_file, master_log_pos))
+                    "MASTER_LOG_POS=%s;") % (main_host, 'root', self.conn_password, main_log_file, main_log_pos))
         exc.execute(query)
 
         exc.execute ("FLUSH PRIVILEGES;")
 
-        # Start the slave thread
+        # Start the subordinate thread
         exc.execute ("START SLAVE;")
         db.close()
         

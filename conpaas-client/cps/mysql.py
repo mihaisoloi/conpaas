@@ -29,15 +29,15 @@ class Client(BaseClient):
         
         nodes = self.callmanager(service['sid'], "list_nodes", False, {})
 
-        for node in nodes['masters']:
+        for node in nodes['mains']:
             params = { 'serviceNodeId': node }
             details = self.callmanager(service['sid'], "get_node_info", False, params)
-            print "master url:", "mysql://%s:3306" % details['serviceNode']['ip']
+            print "main url:", "mysql://%s:3306" % details['serviceNode']['ip']
 
-        for node in nodes['slaves']:
+        for node in nodes['subordinates']:
             params = { 'serviceNodeId': node }
             details = self.callmanager(service['sid'], "get_node_info", False, params)
-            print "slave url: ", "mysql://%s:3306" % details['serviceNode']['ip']
+            print "subordinate url: ", "mysql://%s:3306" % details['serviceNode']['ip']
 
     def usage(self, cmdname):
         BaseClient.usage(self, cmdname)
@@ -90,10 +90,10 @@ class Client(BaseClient):
                 except IndexError:
                     print 'Cloud name must be one of ' + self.available_clouds()
                     sys.exit(0)
-                res = self.callmanager(sid, command, True, { 'slaves': count,
+                res = self.callmanager(sid, command, True, { 'subordinates': count,
                     'cloud': cloud})
             else:
-                res = self.callmanager(sid, command, True, { 'slaves': count })
+                res = self.callmanager(sid, command, True, { 'subordinates': count })
             if 'error' in res:
                 print res['error']
             else:
